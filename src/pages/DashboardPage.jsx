@@ -1,6 +1,7 @@
 import React from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
+import RealtimeApexChart from "../components/RealtimeApexChart";
 
 const DashboardPage = () => {
   return (
@@ -15,8 +16,6 @@ const DashboardPage = () => {
 
         {/* Dashboard Content */}
         <main className="flex-1 overflow-x-hidden overflow-y-auto p-4">
-          <h1 className="text-3xl font-bold mb-6 text-gray-800">Dashboard</h1>
-          
           {/* Bagian Statistik Kartu */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
             <div className="bg-white p-6 rounded-lg shadow-sm flex items-center justify-between">
@@ -60,19 +59,16 @@ const DashboardPage = () => {
 
           {/* Bagian Monthly Sales */}
           <div className="bg-white p-6 rounded-lg shadow-sm mb-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-4">Monthly Sales</h2>
-            {/* Di sini Anda bisa menempatkan grafik menggunakan pustaka seperti Chart.js atau Recharts */}
-            <img src="https://i.imgur.com/5u9yF0L.png" alt="Monthly Sales Chart" className="w-full h-auto" />
+            <h2 className="text-lg font-bold text-gray-800 mb-4">Real-time Sales Data</h2>
+            {/* Panggil komponen chart Anda di sini */}
+            <RealtimeApexChart />
           </div>
 
           {/* Bagian Monthly Target */}
           <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col items-center justify-center mb-6">
             <h2 className="text-lg font-bold text-gray-800 mb-4">Monthly Target</h2>
             {/* Placeholder untuk chart */}
-            <img src="https://i.imgur.com/8QxQzR1.png" alt="Monthly Target Chart" className="w-32 h-32 mb-4" />
-            <p className="text-gray-500 text-sm text-center">
-              You earn $3287 today, it's higher than last month. Keep up your good work!
-            </p>
+            <img src="" alt="KOSONG" className="w-32 h-32 mb-4" />
           </div>
 
         </main>

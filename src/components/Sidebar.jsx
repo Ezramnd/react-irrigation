@@ -1,11 +1,12 @@
 import React from 'react';
+import agrifamLogo from '../assets/agrifam.jpg';// mengimport logo Agrifam
 
 const Sidebar = () => {
   return (
     <div className="w-64 bg-white border-r border-gray-200 min-h-screen p-4 flex flex-col">
       <div className="flex items-center space-x-2 mb-6">
-        <img src="https://tailadmin.com/images/logo-tailadmin.svg" alt="TailAdmin Logo" className="w-8 h-8" />
-        <span className="text-xl font-bold text-gray-800">TailAdmin</span>
+        <img src={agrifamLogo} alt="agrifam" className="w-8 h-8" />
+        <span className="text-xl font-bold text-gray-800">Agrifam Indonesia</span>
       </div>
       <nav className="flex-1 space-y-2">
         <a href="#" className="flex items-center space-x-3 p-2 rounded-lg bg-blue-100 text-blue-700 font-semibold">
@@ -23,20 +24,10 @@ const Sidebar = () => {
             <rect x="8" y="2" width="8" height="2" rx="1" ry="1" />
             <path d="M12 18h.01" />
           </svg>
-          <span>E-commerce</span>
+          <span>User</span>
         </a>
         {/* Tambahkan item menu lainnya di sini */}
       </nav>
-      <div className="mt-auto p-4 border-t border-gray-200">
-        <div className="flex items-center justify-between text-gray-500">
-          <span>Theme</span>
-          <button>
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 3a9 9 0 100 18A9 9 0 0012 3z" />
-            </svg>
-          </button>
-        </div>
-      </div>
     </div>
   );
 };

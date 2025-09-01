@@ -1,11 +1,18 @@
-// src/App.jsx
+// 1. Impor 'Routes', bukan 'Switch'
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 
 function App() {
   return (
-    <div className="App">
-      <DashboardPage />
-    </div>
+    <BrowserRouter>
+      {/* 2. Gunakan <Routes> sebagai pembungkus */}
+      <Routes>
+        {/* 3. Gunakan prop 'element' untuk merender komponen. 'exact' tidak perlu lagi. */}
+        <Route path="/" element={<LoginPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

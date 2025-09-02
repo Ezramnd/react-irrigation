@@ -12,11 +12,21 @@ const AlatIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m12 0a2 2 0 100-4m0 4a2 2 0 110-4M6 16a2 2 0 100-4m0 4a2 2 0 110-4m12 0a2 2 0 100-4m0 4a2 2 0 110-4M9 9a2 2 0 100-4m0 4a2 2 0 110-4m6 0a2 2 0 100-4m0 4a2 2 0 110-4" /></svg>
 );
 
+// 1. Penambahan Ikon Baru untuk ESP
+const EspIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M12 5a7 7 0 100 14 7 7 0 000-14z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9a3 3 0 100 6 3 3 0 000-6z" />
+  </svg>
+);
+
+
 // --- Data untuk item menu ---
 const menuItems = [
   { name: 'Dashboard', path: '/dashboard', icon: <DashboardIcon /> },
   { name: 'Alat', path: '/alat', icon: <AlatIcon /> },
-  // Tambahkan item menu lainnya di sini
+  // 2. Ikon Esp diperbarui di sini
+  { name: 'Esp', path: '/esp', icon: <EspIcon /> }, 
 ];
 
 const Sidebar = ({ isOpen }) => { // Menerima prop 'isOpen' untuk mobile
@@ -52,7 +62,8 @@ const Sidebar = ({ isOpen }) => { // Menerima prop 'isOpen' untuk mobile
     >
       <div className="flex items-center space-x-3 mb-8 px-2">
         <img src={agrifamLogo} alt="agrifam" className="w-10 h-10 rounded-lg" />
-        <span className="text- font-bold text-gray-800">Agrifam Indonesia</span>
+        {/* 3. Perbaikan kecil pada ukuran teks */}
+        <span className="text-xl font-bold text-gray-800">Agrifam Indonesia</span>
       </div>
       
       <nav className="flex-1">

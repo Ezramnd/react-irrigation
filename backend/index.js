@@ -10,9 +10,9 @@ import router from "./routes/index.js";
 import Users from "./models/UserModel.js";
 
 // --- Konfigurasi ---
-const MQTT_BROKER_URL = 'mqtt://localhost:1883';
+const MQTT_BROKER_URL = 'mqtt://localhost:192.168.1.20';
 const MQTT_TOPIC_SENSOR = 'esp32/sensor/suhu';
-const MQTT_TOPIC_PERINTAH = 'esp32/perintah/led';
+const MQTT_TOPIC_PERINTAH = 'esp32/led/control';
 const FRONTEND_URL = "http://localhost:5173";
 const PORT = 5000;
 

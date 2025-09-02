@@ -34,5 +34,18 @@
     "globals": "^16.3.0",
     "tailwindcss": "^4.1.12",
     "vite": "^7.1.2"
-  }
+  },
+  "description": "MAGANG",
+  "main": "eslint.config.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ezramnd/react-irrigation.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Ezramnd/react-irrigation/issues"
+  },
+  "homepage": "https://github.com/Ezramnd/react-irrigation#readme"
 }

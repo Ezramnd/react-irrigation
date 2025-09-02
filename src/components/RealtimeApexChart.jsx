@@ -1,77 +1,121 @@
 import React, { useState, useEffect } from 'react';
 import Chart from 'react-apexcharts';
 
-const RealtimeApexChart = () => {
-  // ApexCharts memisahkan konfigurasi (options) dan data (series)
+const SmartIrrigationChart = () => {
+  // State untuk konfigurasi chart
   const [options, setOptions] = useState({
     chart: {
-      id: 'realtime',
-      animations: {
-        enabled: true,
-        easing: 'linear',
-        dynamicAnimation: {
-          speed: 1000 // Kecepatan update animasi dalam milidetik
-        }
-      },
+      id: 'smart-irrigation-chart',
       toolbar: {
-        show: false
+        show: true, // Tampilkan toolbar agar bisa zoom
       },
-      zoom: {
-        enabled: false
-      }
     },
     xaxis: {
       type: 'datetime',
-      range: 60000, // Menampilkan data untuk 60 detik terakhir
+      tooltip: {
+        enabled: true,
+      },
+      labels: {
+        datetimeUTC: false, // Tampilkan waktu sesuai zona waktu lokal
+      }
     },
     yaxis: {
-      max: 100 // Nilai maksimal untuk sumbu Y
+      min: 0,
+      max: 120, // Beri sedikit ruang di atas nilai 100
+      labels: {
+        formatter: function (val) {
+          // Ganti label angka menjadi status
+          if (val >= 100) return "ON";
+          if (val === 0) return "OFF";
+          return '';
+        }
+      }
+    },
+    tooltip: {
+      x: {
+        format: 'dd MMM yyyy - HH:mm' // Format tanggal dan waktu di tooltip
+      },
+      y: {
+        formatter: function(val) {
+          return val >= 100 ? 'Watering' : 'Idle';
+        }
+      }
     },
     stroke: {
-      curve: 'smooth'
+      curve: 'stepline', // 'stepline' cocok untuk status on/off
     },
-    markers: {
-      size: 0
+    title: {
+      text: 'Riwayat Aktivitas Pompa Irigasi (30 Hari Terakhir)',
+      align: 'left'
     },
   });
 
+  // State untuk data chart
   const [series, setSeries] = useState([
     {
-      name: 'Sales',
-      data: [] // Data awal kosong
+      name: 'Status Pompa',
+      data: [] // Data awal kosong, akan diisi oleh useEffect
     }
   ]);
 
-  useEffect(() => {
-    // Fungsi untuk menghasilkan data baru
-    const getNewSeries = (baseval, count) => {
-      const x = baseval;
-      const y = Math.floor(Math.random() * (90 - 30 + 1)) + 30; // Angka acak antara 30 dan 90
-      return { x, y };
-    };
+  /**
+   * Fungsi untuk menghasilkan data simulasi irigasi.
+   * Aturan: Menyiram setiap 3 hari sekali, selama 15 menit.
+   * @param {number} days - Jumlah hari ke belakang untuk disimulasikan.
+   * @returns {Array} - Array data untuk series ApexCharts.
+   */
+  const generateIrrigationData = (days) => {
+    const data = [];
+    const now = new Date();
+    const wateringDurationMinutes = 15;
 
-    // Simulasi pembaruan data setiap 2 detik
-    const interval = setInterval(() => {
-      const newPoint = getNewSeries(new Date().getTime(), 1);
-      
-      // Ambil data yang sudah ada
-      const currentData = series[0].data.slice();
-      
-      // Tambahkan titik data baru
-      currentData.push(newPoint);
+    // Mulai dari 'days' hari yang lalu
+    let currentDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
 
-      // Pastikan data tidak terlalu banyak, hapus yang paling lama
-      if (currentData.length > 20) {
-        currentData.shift();
+    // Tambahkan titik awal untuk memastikan grafik mulai dari 'OFF'
+    data.push({ x: currentDate.getTime(), y: 0 });
+
+    let dayCounter = 0;
+    while (currentDate <= now) {
+      // Cek apakah ini hari penyiraman (setiap 3 hari)
+      if (dayCounter % 3 === 0) {
+        // Asumsikan penyiraman dimulai jam 8 pagi
+        const wateringStartTime = new Date(currentDate);
+        wateringStartTime.setHours(8, 0, 0, 0);
+
+        const wateringEndTime = new Date(wateringStartTime.getTime() + wateringDurationMinutes * 60 * 1000);
+        
+        // Hanya tambahkan data jika waktu penyiraman belum lewat hari ini
+        if (wateringStartTime < now) {
+            // Titik sebelum ON (untuk stepline)
+            data.push({ x: wateringStartTime.getTime() - 1, y: 0 });
+            // Titik saat ON
+            data.push({ x: wateringStartTime.getTime(), y: 100 });
+            // Titik saat akan OFF
+            data.push({ x: wateringEndTime.getTime(), y: 100 });
+            // Titik setelah OFF
+            data.push({ x: wateringEndTime.getTime() + 1, y: 0 });
+        }
       }
 
-      // Perbarui state series untuk me-render ulang chart
-      setSeries([{ data: currentData }]);
-    }, 2000); // Update setiap 2 detik
+      // Lanjut ke hari berikutnya
+      currentDate.setDate(currentDate.getDate() + 1);
+      dayCounter++;
+    }
+    
+    // Pastikan titik terakhir adalah 'OFF' di waktu sekarang
+    data.push({ x: now.getTime(), y: 0 });
 
-    // Membersihkan interval saat komponen tidak lagi digunakan
-    return () => clearInterval(interval);
-  }, [series]); // Bergantung pada 'series' untuk mendapatkan data terbaru
+    return data;
+  };
+
+  useEffect(() => {
+    // Hasilkan data untuk 30 hari terakhir
+    const simulatedData = generateIrrigationData(30);
+    setSeries([{ data: simulatedData }]);
+    
+    // useEffect ini hanya perlu berjalan sekali saat komponen dimuat
+  }, []); 
 
   return (
     <Chart
@@ -83,4 +127,4 @@ const RealtimeApexChart = () => {
   );
 };
 
-export default RealtimeApexChart;
+export default SmartIrrigationChart;

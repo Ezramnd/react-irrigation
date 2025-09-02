@@ -1,0 +1,30 @@
+GET http://localhost:5000/users
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZW1haWwiOiJqb2huQGV4YW1wbGUuY29tIiwiaWF0IjoxNzU2NzM4OTEzLCJleHAiOjE3NTY3Mzg5MzN9.17XSdoUVwLEzweBuYY7_17aUtIUpVoM3263_dIMKQyk
+
+### Register User
+POST http://localhost:5000/users
+Content-Type: application/json
+
+{
+    "name": "John Doe",
+    "email": "john@example.com",
+    "password": "password123",
+    "confPassword": "password123"
+}
+
+### Login User
+POST http://localhost:5000/login
+Content-Type: application/json
+
+{
+    "email": "john@example.com",
+    "password": "password123"
+}
+
+
+###
+GET http://localhost:5000/token
+
+###
+
+DELETE http://localhost:5000/logout

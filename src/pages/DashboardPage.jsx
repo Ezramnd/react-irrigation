@@ -2,6 +2,7 @@ import React from 'react';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import RealtimeApexChart from "../components/RealtimeApexChart";
+import DownloadableIrrigationTable from '../components/DownloadableIrrigationTable';
 
 const DashboardPage = () => {
   return (
@@ -57,18 +58,17 @@ const DashboardPage = () => {
             {/* Tambahkan kartu lainnya */}
           </div>
 
-          {/* Bagian Monthly Sales */}
+          {/* Bagian Real-time Smart Irrigation*/}
           <div className="bg-white p-6 rounded-lg shadow-sm mb-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-4">Real-time Sales Data</h2>
+            <h2 className="text-lg font-bold text-gray-800 mb-4">Real-time Smart Irrigation</h2>
             {/* Panggil komponen chart Anda di sini */}
             <RealtimeApexChart />
           </div>
 
           {/* Bagian Monthly Target */}
-          <div className="bg-white p-6 rounded-lg shadow-sm flex flex-col items-center justify-center mb-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-4">Monthly Target</h2>
-            {/* Placeholder untuk chart */}
-            <img src="" alt="KOSONG" className="w-32 h-32 mb-4" />
+          <div className="mb-6">
+            {/* Panggil komponen tabel baru dengan data yang sudah diproses */}
+            <DownloadableIrrigationTable history={RealtimeApexChart} />
           </div>
 
         </main>

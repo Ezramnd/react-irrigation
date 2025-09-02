@@ -1,132 +1,150 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { motion, AnimatePresence } from 'framer-motion';
 import agrifamLogo from '../assets/agrifam.jpg';
 
-const LoginPage = () => {
-  // FIX 1: Pindahkan pemanggilan useNavigate ke dalam komponen.
-  const navigate = useNavigate();
+// --- Komponen Ikon Mata ---
+const EyeIcon = ({ isOpen }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    {isOpen ? (
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    ) : (
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242" />
+    )}
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l-1.414-1.414A8.963 8.963 0 0112 3a8.963 8.963 0 011.414 14.586L12 19z" />
+  </svg>
+);
 
+
+const LoginPage = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [errorMsg, setErrorMsg] = useState(''); // State untuk pesan error
+  const [errorMsg, setErrorMsg] = useState('');
 
-  // HAPUS: Baris ini menyebabkan infinite loop dan salah tempat.
-  // navigate('/dashboard'); 
-
-  // FIX 4: Ganti nama fungsi ini menjadi 'handleLogin' agar lebih jelas
-  // dan ini adalah fungsi yang akan kita panggil dari form.
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      // FIX 5: Pastikan port ini adalah port backend kamu (kemungkinan besar 5000, bukan 5173).
-      await axios.post('http://localhost:5000/login', {
-        email: email,
-        password: password
-      });
-      // FIX 3: Ganti history.push dengan navigate()
+      await axios.post('http://localhost:5000/login', { email, password });
       navigate('/dashboard');
     } catch (error) {
       console.error('Login failed:', error);
-      if (error.response) {
-        // Menampilkan pesan error dari backend jika ada
-        setErrorMsg(error.response.data.msg);
-      } else {
-        setErrorMsg('Login gagal. Silakan coba lagi.');
-      }
+      setErrorMsg(error.response ? error.response.data.msg : 'Login gagal. Periksa koneksi Anda.');
     }
   };
+  
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.1 } },
+  };
 
-  const togglePasswordVisibility = () => setShowPassword(!showPassword);
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: { y: 0, opacity: 1 },
+  };
 
   return (
     <div className="flex min-h-screen bg-white text-gray-800">
       {/* Bagian Kiri: Form Login */}
       <div className="flex-1 flex flex-col justify-center items-center p-8 lg:p-12">
-        <div className="w-full max-w-md">
-          <a href="#" className="flex items-center text-gray-500 hover:text-gray-700 mb-6 transition-colors duration-200">
-            <ArrowLeftIcon className="h-4 w-4 mr-2" />
-            Back to dashboard
-          </a>
-          <h1 className="text-4xl font-bold mb-2">Sign In</h1>
-          <p className="text-gray-500 mb-8">
-            Enter your email and password to sign in!
-          </p>
+        <motion.div 
+          className="w-full max-w-md"
+          variants={containerVariants} initial="hidden" animate="visible"
+        >
+          <motion.div variants={itemVariants} className="flex items-center space-x-3 mb-8">
+            <img src={agrifamLogo} alt="Agrifam" className="w-12 h-12" />
+            <span className="text-2xl font-bold text-gray-800">Agrifam Indonesia</span>
+          </motion.div>
           
-          {/* Menampilkan pesan error jika ada */}
-          {errorMsg && <p className="bg-red-100 text-red-700 p-3 rounded mb-4">{errorMsg}</p>}
-
-          {/* FIX 2: Panggil fungsi handleLogin saat form di-submit */}
-          <form onSubmit={handleLogin}>
-            <div className="mb-4">
-              <label className="block text-gray-700 font-medium mb-2" htmlFor="email">
-                Email *
-              </label>
-              <input
-                type="email"
-                id="email"
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
-                placeholder="info@agrifam.link"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="mb-4 relative">
-              <label className="block text-gray-700 font-medium mb-2" htmlFor="password">
-                Password *
-              </label>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                id="password"
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200 pr-10"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <button
-                type="button"
-                className="absolute inset-y-0 right-0 top-6 flex items-center px-4 text-gray-500"
-                onClick={togglePasswordVisibility}
+          <motion.h1 variants={itemVariants} className="text-4xl font-extrabold mb-2 text-gray-900">
+            Selamat Datang Kembali!
+          </motion.h1>
+          <motion.p variants={itemVariants} className="text-gray-500 mb-8">
+            Silakan masukkan detail Anda untuk melanjutkan.
+          </motion.p>
+          
+          <AnimatePresence>
+            {errorMsg && (
+              <motion.p 
+                className="bg-red-100 text-red-700 p-3 rounded-lg mb-4 text-sm font-medium"
+                initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
               >
-                {/* SVG Ikon mata (sudah benar) */}
+                {errorMsg}
+              </motion.p>
+            )}
+          </AnimatePresence>
+
+          <form onSubmit={handleLogin}>
+            <motion.div variants={itemVariants} className="mb-4">
+              <label className="block text-sm font-semibold text-gray-600 mb-2" htmlFor="email">Email</label>
+              <input type="email" id="email" className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition text-gray-800 placeholder-gray-400 shadow-sm" placeholder="info@agrifam.link" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </motion.div>
+
+            <motion.div variants={itemVariants} className="mb-4 relative">
+              <label className="block text-sm font-semibold text-gray-600 mb-2" htmlFor="password">Password</label>
+              <input type={showPassword ? 'text' : 'password'} id="password" className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition text-gray-800 placeholder-gray-400 shadow-sm pr-12" placeholder="Masukkan password Anda" value={password} onChange={(e) => setPassword(e.target.value)} required />
+              <button type="button" className="absolute inset-y-0 right-0 top-7 flex items-center px-4 text-gray-500 hover:text-green-600 transition-colors" onClick={() => setShowPassword(!showPassword)}>
+                <EyeIcon isOpen={showPassword} />
               </button>
-            </div>
+            </motion.div>
             
-            <div className="flex justify-between items-center mb-6 text-sm">
-              <label className="flex items-center text-gray-500">
-                <input type="checkbox" className="mr-2" />
+            <motion.div variants={itemVariants} className="flex justify-between items-center mb-6 text-sm">
+              <label className="flex items-center text-gray-500 select-none">
+                <input type="checkbox" className="mr-2 h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500" />
                 Keep me logged in
               </label>
-              <a href="#" className="text-green-500 hover:underline">
-                Forgot password?
+              <a href="#" className="text-green-600 hover:underline font-semibold">
+                Lupa password?
               </a>
-            </div>
+            </motion.div>
 
-            <button
-              type="submit"
-              className="w-full p-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors duration-200"
-            >
-              Sign In
-            </button>
+            <motion.div variants={itemVariants}>
+              <motion.button type="submit" className="w-full p-4 bg-green-600 text-white rounded-xl font-bold shadow-md hover:bg-green-700" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }} transition={{ type: 'spring', stiffness: 300 }}>
+                Sign In
+              </motion.button>
+            </motion.div>
           </form>
-        </div>
+        </motion.div>
       </div>
 
-      {/* Bagian Kanan (sudah benar) */}
-      <div className="hidden lg:flex flex-1 flex-col justify-center items-center p-8 bg-gradient-to-br from-green-900 to-green-900 text-white relative overflow-hidden">
-        <div className="absolute inset-0 z-0 opacity-10" style={{ backgroundImage: "url('...')" }}></div>
-        <div className="z-10 text-center">
-          <img src={agrifamLogo} alt="Agrifam" className="w-24 h-24 mx-auto mb-4 rounded-full" />
-          <h2 className="text-4xl font-bold mb-2">AGRIFAM INDONESIA</h2>
-          <p className="text-lg">
+      {/* --- BAGIAN KANAN YANG DIPERBAIKI DENGAN WARNA HIJAU --- */}
+      <motion.div 
+        className="hidden lg:flex flex-1 flex-col justify-center items-center p-8 bg-gradient-to-br from-green-800 to-gray-900 text-white relative overflow-hidden"
+        initial={{ opacity: 0, x: 100 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+      >
+        <div className="absolute inset-0 z-0 opacity-10" style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/cubes.png')" }}></div>
+        
+        <motion.div 
+          className="z-10 text-center"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          <motion.img 
+            src={agrifamLogo} 
+            alt="Agrifam" 
+            className="w-28 h-28 mx-auto mb-6 rounded-full shadow-2xl"
+            variants={itemVariants}
+          />
+          <motion.h2 
+            className="text-5xl font-extrabold mb-2"
+            style={{ textShadow: '2px 2px 10px rgba(0,0,0,0.3)' }}
+            variants={itemVariants}
+          >
+            AGRIFAM INDONESIA
+          </motion.h2>
+          <motion.p 
+            className="text-lg text-white/80"
+            variants={itemVariants}
+          >
             PT. AgriFamili Sarana Exedis Indonesia
-          </p>
-        </div>
-      </div>
+          </motion.p>
+        </motion.div>
+      </motion.div>
     </div>
   );
 };

@@ -6,10 +6,10 @@ POST http://localhost:5000/users
 Content-Type: application/json
 
 {
-    "name": "John Doe",
-    "email": "john@example.com",
-    "password": "password123",
-    "confPassword": "password123"
+    "name": "Ezra",
+    "email": "ezra@example.com",
+    "password": "12345678",
+    "confPassword": "12345678"
 }
 
 ### Login User
@@ -17,8 +17,8 @@ POST http://localhost:5000/login
 Content-Type: application/json
 
 {
-    "email": "john@example.com",
-    "password": "password123"
+    "email": "ezra@example.com",
+    "password": "12345678"
 }
 
 
@@ -28,3 +28,12 @@ GET http://localhost:5000/token
 ###
 
 DELETE http://localhost:5000/logout
+
+
+### Register Alat
+POST http://localhost:5000/alat
+Content-Type: application/json
+
+{
+    
+}

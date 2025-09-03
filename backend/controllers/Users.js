@@ -41,16 +41,24 @@ export const Login = async(req, res) => {
         });
         const match = await bcrypt.compare(req.body.password, user[0].password);
         if(!match) return res.status(400).json({msg: "Wrong password"});
+
         const userId = user[0].id;
         const name = user[0].name;
         const email = user[0].email;
+        const keepLoggedIn = req.body.keepLoggedIn;
+
+        const refreshTokenDuration = keepLoggedIn ? '7d' : '1d';
+        const cookieMaxAge = keepLoggedIn 
+            ? 7 * 24 * 60 * 60 * 1000  // 7 hari
+            : 1 * 24 * 60 * 60 * 1000; // 1 hari
+
         const accessToken = jwt.sign({id: userId, email: email}, process.env.ACCESS_TOKEN_SECRET, 
             {
-                expiresIn: "20s"
+                expiresIn: "1h"
             });
         const refreshToken = jwt.sign({id: userId, email: email}, process.env.REFRESH_TOKEN_SECRET,
             {
-                expiresIn: "1d"
+                expiresIn: refreshTokenDuration
             });
             await Users.update({refresh_token: refreshToken}, {
                 where: {
@@ -59,7 +67,8 @@ export const Login = async(req, res) => {
             });
             res.cookie('refreshToken', refreshToken, {
                 httpOnly: true,
-                maxAge: 24 * 60 * 60 * 1000, // 1 day
+                maxAge: cookieMaxAge, // 1 day
+                // secure: true, // Aktifkan ini saat deploy ke HTTPS
                 // secure: true, //tidak perlu karena masih server local
             });
             res.json({ accessToken });

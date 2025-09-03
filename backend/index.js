@@ -10,19 +10,19 @@ import router from "./routes/index.js";
 import Users from "./models/UserModel.js";
 
 // --- Konfigurasi yang Diperbaiki ---
-const MQTT_BROKER_URL = 'mqtt://192.168.1.15'; // FIXED: URL format yang benar
-const MQTT_PORT = 1883; // Tambahkan port default MQTT jika diperlukan
+const MQTT_BROKER_URL = 'mqtt://192.168.1.15'; 
 const MQTT_TOPIC_SENSOR = 'esp32/sensor/suhu';
 const MQTT_TOPIC_PERINTAH = 'esp32/led/control';
+const MQTT_TOPIC_STATUS = 'esp32/status'; // Topik baru untuk status LWT
 const FRONTEND_URL = "http://localhost:5173";
 const PORT = 5000;
 
 // MQTT connection options
 const mqttOptions = {
-  clientId: `server_${Math.random().toString(16).slice(2, 8)}`, // Client ID unik
-  clean: true,
-  connectTimeout: 4000,
-  reconnectPeriod: 1000, // Auto reconnect
+    clientId: `server_${Math.random().toString(16).slice(2, 8)}`,
+    clean: true,
+    connectTimeout: 4000,
+    reconnectPeriod: 1000,
 };
 
 dotenv.config();
@@ -64,11 +64,10 @@ function connectMQTT() {
         mqttConnected = true;
         console.log('✅ Terhubung ke MQTT Broker');
         
-        mqttClient.subscribe(MQTT_TOPIC_SENSOR, (err) => {
+        // Berlangganan ke topik sensor DAN topik status
+        mqttClient.subscribe([MQTT_TOPIC_SENSOR, MQTT_TOPIC_STATUS], (err) => {
             if (!err) {
-                console.log(`✅ Berhasil subscribe ke topik: ${MQTT_TOPIC_SENSOR}`);
-                // Mengirim status online ke ESP32 saat server start
-                mqttClient.publish('esp32/status', 'SERVER_ONLINE');
+                console.log(`✅ Berhasil subscribe ke topik: ${MQTT_TOPIC_SENSOR} & ${MQTT_TOPIC_STATUS}`);
             } else {
                 console.error('❌ Gagal subscribe:', err);
             }
@@ -82,9 +81,6 @@ function connectMQTT() {
     mqttClient.on('error', (err) => {
         mqttConnected = false;
         console.error('❌ Error koneksi MQTT:', err);
-        
-        // Jangan tutup koneksi di sini agar bisa otomatis reconnect
-        // mqttClient.end();
     });
 
     mqttClient.on('message', (topic, message) => {
@@ -92,14 +88,17 @@ function connectMQTT() {
         console.log(`📩 Menerima pesan dari topik ${topic}: ${messageStr}`);
         
         if (topic === MQTT_TOPIC_SENSOR) {
-            // Validasi pesan sebelum diteruskan
             try {
                 const data = JSON.parse(messageStr);
                 io.emit('data-sensor', data);
             } catch (e) {
-                // Jika bukan JSON, kirim sebagai string biasa
                 io.emit('data-sensor', messageStr);
             }
+        } 
+        // Logika baru untuk menangani pesan status dari ESP32
+        else if (topic === MQTT_TOPIC_STATUS) {
+            io.emit('esp-status', { status: messageStr });
+            console.log(`✅ Mengirim status ESP32 ke klien web: ${messageStr}`);
         }
     });
 
@@ -123,7 +122,6 @@ io.on('connection', (socket) => {
     socket.on('perintah-led', (data) => {
         console.log(`📤 Menerima perintah dari web:`, data);
         
-        // Validasi perintah
         const validCommands = ['ON', 'OFF', 'MODE1', 'MODE2'];
         if (!validCommands.includes(data)) {
             console.error('❌ Perintah tidak valid:', data);
@@ -132,7 +130,6 @@ io.on('connection', (socket) => {
         }
         
         if (mqttConnected) {
-            // Publikasikan perintah ke ESP32
             mqttClient.publish(MQTT_TOPIC_PERINTAH, data, { qos: 1 }, (err) => {
                 if (err) {
                     console.error('❌ Gagal mengirim perintah:', err);

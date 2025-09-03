@@ -32,7 +32,7 @@ const LightbulbIcon = ({ status }) => {
 
   return (
     <motion.div
-      key={status} // Animate when status changes
+      key={status}
       initial={{ scale: 0.8, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 200, damping: 10 }}
@@ -60,7 +60,7 @@ const EspPage = () => {
   // State untuk sidebar responsive
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
-  
+
   // State untuk status LED dan riwayat kontrol
   const [ledStatus, setLedStatus] = useState('MATI');
   const [history, setHistory] = useState([]);
@@ -69,7 +69,7 @@ const EspPage = () => {
   const [sensorData, setSensorData] = useState(null);
   const [espInfo, setEspInfo] = useState({
     ip: '192.168.1.x',
-    status: 'Offline',
+    status: 'Offline', // Nilai awal 'Offline'
     uptime: '-'
   });
 
@@ -86,6 +86,8 @@ const EspPage = () => {
       setIsConnected(false);
       setMqttConnected(false);
       addHistory('Terputus dari server');
+      // Set status ESP32 ke offline jika server terputus
+      setEspInfo(prev => ({...prev, status: 'Offline'}));
     });
 
     // Status koneksi MQTT
@@ -97,7 +99,6 @@ const EspPage = () => {
     // Menerima data sensor dari ESP32
     socket.on('data-sensor', (data) => {
       setSensorData(data);
-      // Jika data berupa objek, mungkin ada info tambahan tentang ESP
       if (typeof data === 'object' && data !== null) {
         if (data.uptime) {
           setEspInfo(prev => ({...prev, uptime: data.uptime}));
@@ -105,7 +106,17 @@ const EspPage = () => {
         if (data.ip) {
           setEspInfo(prev => ({...prev, ip: data.ip}));
         }
+        // Jika data sensor diterima, asumsikan ESP32 Online
         setEspInfo(prev => ({...prev, status: 'Online'}));
+      }
+    });
+
+    // ✅ BARU: Event handler untuk status koneksi ESP32 dari backend
+    socket.on('esp-status', (data) => {
+      if (data && data.status) {
+        const newStatus = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+        setEspInfo(prev => ({...prev, status: newStatus}));
+        addHistory(`Status ESP32 berubah: ${newStatus}`);
       }
     });
 
@@ -129,6 +140,7 @@ const EspPage = () => {
       socket.off('disconnect');
       socket.off('mqtt-status');
       socket.off('data-sensor');
+      socket.off('esp-status'); // Jangan lupa tambahkan cleanup
       socket.off('command-status');
       socket.off('error');
     };
@@ -150,13 +162,12 @@ const EspPage = () => {
     const timestamp = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     setHistory(prev => [`${timestamp} - ${message}`, ...prev].slice(0, 8));
   };
-  
+
   // Fungsi untuk menangani klik tombol
   const handleLedControl = (status, message) => {
     setLedStatus(status);
     addHistory(message);
-    
-    // Kirim perintah ke ESP32 melalui Socket.IO
+
     if (isConnected) {
       const command = getEspMode(status);
       socket.emit('perintah-led', command);
@@ -174,7 +185,7 @@ const EspPage = () => {
     'KEDIP_LAMBAT': { text: 'KEDIP LAMBAT', message: 'Mode 2 Aktif', bgColor: 'bg-orange-50', textColor: 'text-orange-700', borderColor: 'border-orange-200' },
   };
   const currentStatus = statusInfo[ledStatus] || statusInfo['MATI'];
-  
+
   // Varian animasi
   const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
   const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 100 } } };
@@ -193,12 +204,12 @@ const EspPage = () => {
                 <h2 className="text-xl font-bold text-gray-800">Kontrol LED ESP32</h2>
                 <ConnectionStatus isConnected={isConnected} />
               </div>
-              
+
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-                
+
                 {/* Panel Status LED */}
-                <motion.div 
-                  key={ledStatus} // Animate saat status berubah
+                <motion.div
+                  key={ledStatus}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   className={`p-8 rounded-xl ${currentStatus.bgColor} text-center border ${currentStatus.borderColor}`}
@@ -212,40 +223,40 @@ const EspPage = () => {
                 <div className="flex flex-col items-center">
                   <LightbulbIcon status={ledStatus} />
                   <div className="w-full max-w-sm space-y-3">
-                    <motion.button 
-                      onClick={() => handleLedControl('NYALA', 'Mode ON aktif')} 
-                      whileHover={{ scale: 1.03 }} 
-                      whileTap={{ scale: 0.98 }} 
+                    <motion.button
+                      onClick={() => handleLedControl('NYALA', 'Mode ON aktif')}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.98 }}
                       className={`w-full text-left p-4 ${ledStatus === 'NYALA' ? 'bg-green-100 text-green-700 border-green-300' : 'bg-gray-50 text-gray-700 border-gray-200'} rounded-lg font-semibold transition-colors border hover:bg-green-50`}
                       disabled={!isConnected}
                     >
                       Nyalakan LED
                     </motion.button>
-                    
-                    <motion.button 
-                      onClick={() => handleLedControl('KEDIP_CEPAT', 'Mode Kedip Cepat aktif')} 
-                      whileHover={{ scale: 1.03 }} 
-                      whileTap={{ scale: 0.98 }} 
+
+                    <motion.button
+                      onClick={() => handleLedControl('KEDIP_CEPAT', 'Mode Kedip Cepat aktif')}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.98 }}
                       className={`w-full text-left p-4 ${ledStatus === 'KEDIP_CEPAT' ? 'bg-blue-100 text-blue-700 border-blue-300' : 'bg-gray-50 text-gray-700 border-gray-200'} rounded-lg font-semibold transition-colors border hover:bg-blue-50`}
                       disabled={!isConnected}
                     >
                       Mode 1 (Kedip Cepat)
                     </motion.button>
-                    
-                    <motion.button 
-                      onClick={() => handleLedControl('KEDIP_LAMBAT', 'Mode Kedip Lambat aktif')} 
-                      whileHover={{ scale: 1.03 }} 
-                      whileTap={{ scale: 0.98 }} 
+
+                    <motion.button
+                      onClick={() => handleLedControl('KEDIP_LAMBAT', 'Mode Kedip Lambat aktif')}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.98 }}
                       className={`w-full text-left p-4 ${ledStatus === 'KEDIP_LAMBAT' ? 'bg-orange-100 text-orange-700 border-orange-300' : 'bg-gray-50 text-gray-700 border-gray-200'} rounded-lg font-semibold transition-colors border hover:bg-orange-50`}
                       disabled={!isConnected}
                     >
                       Mode 2 (Kedip Lambat)
                     </motion.button>
-                    
-                    <motion.button 
-                      onClick={() => handleLedControl('MATI', 'Mode OFF aktif')} 
-                      whileHover={{ scale: 1.03 }} 
-                      whileTap={{ scale: 0.98 }} 
+
+                    <motion.button
+                      onClick={() => handleLedControl('MATI', 'Mode OFF aktif')}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.98 }}
                       className={`w-full text-left p-4 ${ledStatus === 'MATI' ? 'bg-red-100 text-red-700 border-red-300' : 'bg-gray-50 text-gray-700 border-gray-200'} rounded-lg font-semibold transition-colors border hover:bg-red-50`}
                       disabled={!isConnected}
                     >
@@ -274,14 +285,14 @@ const EspPage = () => {
                   </li>
                 </ul>
               </InfoCard>
-              
+
               <InfoCard title="Riwayat Kontrol">
                 <div className="h-[160px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                   <ul className="space-y-2 text-sm text-gray-500 font-mono">
                     <AnimatePresence>
                       {history.length > 0 ? (
                         history.map((log, index) => (
-                          <motion.li 
+                          <motion.li
                             key={log + index}
                             initial={{ opacity: 0, y: -10 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -304,17 +315,17 @@ const EspPage = () => {
               <InfoCard title="Info ESP32">
                 <ul className="space-y-3 text-sm text-gray-600">
                   <li className="flex justify-between">
-                    <span>IP Address</span> 
+                    <span>IP Address</span>
                     <strong className="font-mono">{espInfo.ip}</strong>
                   </li>
                   <li className="flex justify-between">
-                    <span>Status</span> 
+                    <span>Status</span>
                     <strong className={espInfo.status === 'Online' ? 'text-green-600' : 'text-red-600'}>
                       {espInfo.status}
                     </strong>
                   </li>
                   <li className="flex justify-between">
-                    <span>Uptime</span> 
+                    <span>Uptime</span>
                     <strong className="font-mono">{espInfo.uptime}</strong>
                   </li>
                   {sensorData && typeof sensorData === 'object' && (

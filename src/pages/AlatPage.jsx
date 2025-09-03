@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
+import api from '../api';
 
-// Asumsi Sidebar dan Header ada di path yang benar
+
 import Sidebar from '../components/Sidebar'; 
 import Header from '../components/Header';
 
+// ... (Komponen AlatCard, FormTambahAlat, ModalEditAlat, dll. tetap sama) ...
 // --- Komponen Kartu Alat ---
 const AlatCard = ({ alat, onClick }) => { 
   const { lokasi, jenis, status } = alat;
@@ -170,28 +172,84 @@ const ModalKontrolIrigasi = ({ alat, onClose, onEdit, onDelete }) => {
     );
 };
 
+
 // --- Komponen Halaman Utama ---
 const AlatPage = () => {
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [selectedAlat, setSelectedAlat] = useState(null);
   const [alatToEdit, setAlatToEdit] = useState(null);
+  
+  // DIUBAH: State daftarAlat awalnya kosong
+  const [daftarAlat, setDaftarAlat] = useState([]);
+  const [isLoading, setIsLoading] = useState(true); // BARU: state untuk loading
 
   const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
-  const [daftarAlat, setDaftarAlat] = useState([ { id: 1, nama: 'Pompa Hidroponik', jenis: 'Smart Irrigation', lokasi: 'Greenhouse A', status: 'active' }, ]);
 
-  const handleTambahAlat = (alatBaru) => { const newAlatWithId = { ...alatBaru, id: Date.now() }; setDaftarAlat([...daftarAlat, newAlatWithId]); };
+  // Ganti fungsi useEffect Anda dengan ini
+useEffect(() => {
+    const fetchAlat = async () => {
+        try {
+            const response = await api.get('/alat');
+            setDaftarAlat(response.data);
+        } catch (error) {
+            toast.error("Gagal memuat data alat.");
+            console.error("Error fetching data: ", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    fetchAlat();
+}, []);
+
+  // Ganti fungsi handleTambahAlat Anda dengan ini
+  const handleTambahAlat = async (alatBaru) => {
+      try {
+          const response = await api.post('/alat', alatBaru);
+          setDaftarAlat([...daftarAlat, response.data.device]); // Diperbarui untuk cocok dengan respons backend
+      } catch (error) {
+          toast.error("Gagal menambahkan alat baru.");
+          console.error("Error adding tool: ", error);
+          // Tambahkan ini untuk melihat detail error dari backend
+          if (error.response) {
+              console.error("Data Error:", error.response.data);
+          }
+      }
+  };
+
   const handleLihatDetail = (alat) => setSelectedAlat(alat);
   const handleEdit = (alat) => setAlatToEdit(alat);
-  const handleUpdateAlat = (updatedAlat) => { setDaftarAlat(daftarAlat.map(alat => alat.id === updatedAlat.id ? updatedAlat : alat)); if(selectedAlat && selectedAlat.id === updatedAlat.id) { setSelectedAlat(updatedAlat); } };
+
+  // DIUBAH: handleUpdateAlat (perlu API endpoint PUT /api/alat/:id)
+  const handleUpdateAlat = async (updatedAlat) => {
+    // Implementasi mirip dengan handleTambahAlat, tapi menggunakan api.put()
+    try {
+      // ... setup axios dengan token ...
+      // await api.put(`/alat/${updatedAlat.id}`, updatedAlat);
+      setDaftarAlat(daftarAlat.map(alat => alat.id === updatedAlat.id ? updatedAlat : alat));
+      if(selectedAlat && selectedAlat.id === updatedAlat.id) {
+        setSelectedAlat(updatedAlat);
+      }
+      toast.success("Alat berhasil diperbarui!"); // Pindahkan toast ke sini
+    } catch (error) {
+      toast.error("Gagal memperbarui alat.");
+    }
+  };
   
-  const handleHapusAlat = (idAlat) => {
-    if (window.confirm('Apakah Anda yakin ingin menghapus alat ini? Semua jadwal terkait akan hilang.')) {
+  // DIUBAH: handleHapusAlat (perlu API endpoint DELETE /api/alat/:id)
+  const handleHapusAlat = async (idAlat) => {
+    if (window.confirm('Apakah Anda yakin ingin menghapus alat ini?')) {
+      try {
+        // ... setup axios dengan token ...
+        // await api.delete(`/alat/${idAlat}`);
         setDaftarAlat(prev => prev.filter(a => a.id !== idAlat));
         toast.success('Alat berhasil dihapus!');
-        // Menutup semua modal yang mungkin terbuka untuk alat yang dihapus
         setSelectedAlat(null);
         setAlatToEdit(null);
+      } catch(error) {
+        toast.error("Gagal menghapus alat.");
+      }
     }
   };
 
@@ -204,11 +262,17 @@ const AlatPage = () => {
         <main className="flex-1 overflow-x-hidden overflow-y-auto p-6 md:p-8">
           <LayoutGroup>
             <motion.div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8" layout>
-              {daftarAlat.map((alat) => (<AlatCard key={alat.id} alat={alat} onClick={() => handleLihatDetail(alat)} />))}
-              <motion.div onClick={() => setIsFormVisible(true)} className="bg-slate-50 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-slate-300 text-slate-500 hover:border-blue-500 hover:text-blue-500 cursor-pointer transition-all duration-300 min-h-[180px]" whileHover={{ scale: 1.03 }} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}>
-                <div className="p-4 bg-slate-200 rounded-full mb-3"><svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg></div>
-                <span className="font-semibold text-lg">Tambahkan Alat</span>
-              </motion.div>
+              {isLoading ? (
+                <p>Loading data...</p> // Tampilkan pesan loading
+              ) : (
+                <>
+                  {daftarAlat.map((alat) => (<AlatCard key={alat.id} alat={alat} onClick={() => handleLihatDetail(alat)} />))}
+                  <motion.div onClick={() => setIsFormVisible(true)} className="bg-slate-50 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-slate-300 text-slate-500 hover:border-blue-500 hover:text-blue-500 cursor-pointer transition-all duration-300 min-h-[180px]" whileHover={{ scale: 1.03 }} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}>
+                    <div className="p-4 bg-slate-200 rounded-full mb-3"><svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg></div>
+                    <span className="font-semibold text-lg">Tambahkan Alat</span>
+                  </motion.div>
+                </>
+              )}
             </motion.div>
             <AnimatePresence>
               {selectedAlat && <ModalKontrolIrigasi alat={selectedAlat} onClose={() => setSelectedAlat(null)} onEdit={handleEdit} onDelete={handleHapusAlat} />}

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import api from '../api';
 
 const Header = ({ onMenuClick }) => {
   const location = useLocation();
   const [isProfileOpen, setProfileOpen] = useState(false);
+  const navigate = useNavigate();
 
   // Tentukan judul berdasarkan pathname
   let pageTitle;
@@ -33,6 +35,16 @@ const Header = ({ onMenuClick }) => {
   const rightItemVariants = {
     hidden: { y: -20, opacity: 0 },
     visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 120, delay: 0.1 } },
+  };
+
+  const handleLogout = async () => {
+      try {
+          await api.delete('/logout');
+          localStorage.removeItem('token');
+          navigate('/');
+      } catch (error) {
+          console.error("Gagal untuk logout:", error);
+      }
   };
 
   return (
@@ -108,7 +120,7 @@ const Header = ({ onMenuClick }) => {
                 <a href="#" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Profil Saya</a>
                 <a href="#" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Pengaturan</a>
                 <div className="border-t my-1"></div>
-                <a href="#" className="block px-4 py-2 text-sm text-red-500 hover:bg-red-50">Logout</a>
+                <button onClick={handleLogout} className="w-full text-left block px-4 py-2 text-sm text-red-500 hover:bg-red-50">Logout</button>
               </motion.div>
             )}
           </AnimatePresence>

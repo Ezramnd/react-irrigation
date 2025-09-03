@@ -8,9 +8,10 @@ import cors from "cors"
 import db from "./config/Database.js";
 import router from "./routes/index.js";
 import Users from "./models/UserModel.js";
+import Devices from "./models/DeviceModel.js";
 
 // --- Konfigurasi yang Diperbaiki ---
-const MQTT_BROKER_URL = 'mqtt://192.168.1.15'; 
+const MQTT_BROKER_URL = 'mqtt://localhost'; 
 const MQTT_TOPIC_SENSOR = 'esp32/sensor/suhu';
 const MQTT_TOPIC_PERINTAH = 'esp32/led/control';
 const MQTT_TOPIC_STATUS = 'esp32/status'; // Topik baru untuk status LWT
@@ -29,6 +30,10 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
+// --- LETAKKAN DEFINISI RELASI DI SINI ---
+Users.hasMany(Devices, { foreignKey: 'userId' });
+Devices.belongsTo(Users, { foreignKey: 'userId' });
+
 // Socket.IO setup
 const io = new Server(server, {
     cors: {
@@ -41,7 +46,7 @@ const io = new Server(server, {
 try {
     await db.authenticate();
     console.log('✅ Database Connected');
-    await Users.sync();
+    await db.sync();
 } catch (error) {
     console.error('❌ Database Error:', error);
 }
@@ -91,7 +96,7 @@ function connectMQTT() {
             try {
                 const data = JSON.parse(messageStr);
                 io.emit('data-sensor', data);
-            } catch (e) {
+            } catch{
                 io.emit('data-sensor', messageStr);
             }
         } 

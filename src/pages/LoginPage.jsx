@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import agrifamLogo from '../assets/agrifam.jpg';
+import api from '../api';
 
 // --- Komponen Ikon Mata ---
 const EyeIcon = ({ isOpen }) => (
@@ -23,16 +23,26 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [keepLoggedIn, setKeepLoggedIn] = useState(false);
+
+  // LoginPage.jsx
 
   const handleLogin = async (e) => {
-    e.preventDefault();
-    try {
-      await axios.post('http://localhost:5000/login', { email, password });
-      navigate('/dashboard');
-    } catch (error) {
-      console.error('Login failed:', error);
-      setErrorMsg(error.response ? error.response.data.msg : 'Login gagal. Periksa koneksi Anda.');
-    }
+      e.preventDefault();
+      try {
+          // 1. Tangkap respons dari server dalam sebuah variabel
+          const response = await api.post('/login', { email, password, keepLoggedIn });
+
+          // 2. Simpan accessToken dari respons ke localStorage (INI BAGIAN KUNCINYA)
+          localStorage.setItem('token', response.data.accessToken);
+
+          // 3. Arahkan ke halaman dashboard (atau alat) setelah token tersimpan
+          navigate('/dashboard'); // Pastikan rute ini benar, jika halaman alat ada di '/alat', ganti ke '/alat'
+
+      } catch (error) {
+          console.error('Login failed:', error);
+          setErrorMsg(error.response ? error.response.data.msg : 'Login gagal. Periksa koneksi Anda.');
+      }
   };
   
   const containerVariants = {
@@ -92,7 +102,10 @@ const LoginPage = () => {
             
             <motion.div variants={itemVariants} className="flex justify-between items-center mb-6 text-sm">
               <label className="flex items-center text-gray-500 select-none">
-                <input type="checkbox" className="mr-2 h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500" />
+                <input type="checkbox" className="mr-2 h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                checked={keepLoggedIn}                         
+                onChange={(e) => setKeepLoggedIn(e.target.checked)}
+                />
                 Keep me logged in
               </label>
               <a href="#" className="text-green-600 hover:underline font-semibold">

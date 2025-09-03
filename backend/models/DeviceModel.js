@@ -52,7 +52,8 @@ const Devices = db.define('devices', {
 });
 
 // Mendefinisikan relasi: Setiap User memiliki banyak Device
-Users.hasMany(Devices);
-Devices.belongsTo(Users, { foreignKey: 'userId' });
+// HAPUS DUA BARIS DI BAWAH INI
+// Users.hasMany(Devices);
+// Devices.belongsTo(Users, { foreignKey: 'userId' });
 
 export default Devices;

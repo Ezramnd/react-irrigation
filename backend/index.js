@@ -10,7 +10,7 @@ import router from "./routes/index.js";
 import Users from "./models/UserModel.js";
 
 // --- Konfigurasi yang Diperbaiki ---
-const MQTT_BROKER_URL = 'mqtt://192.168.1.20'; // FIXED: URL format yang benar
+const MQTT_BROKER_URL = 'mqtt://192.168.1.15'; // FIXED: URL format yang benar
 const MQTT_PORT = 1883; // Tambahkan port default MQTT jika diperlukan
 const MQTT_TOPIC_SENSOR = 'esp32/sensor/suhu';
 const MQTT_TOPIC_PERINTAH = 'esp32/led/control';

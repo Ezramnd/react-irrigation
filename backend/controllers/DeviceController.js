@@ -36,5 +36,55 @@ export const createDevice = async (req, res) => {
     }
 }
 
+export const updateDevice = async (req, res) => {
+    try {
+        const device = await Devices.findOne({
+            where: {
+                id: req.params.id, // Cari alat berdasarkan ID dari URL
+                userId: req.userId // Pastikan alat ini milik user yang sedang login
+            }
+        });
+
+        if (!device) return res.status(404).json({ msg: "Alat tidak ditemukan" });
+
+        const { nama, jenis, lokasi, status } = req.body;
+        await Devices.update({ nama, jenis, lokasi, status }, {
+            where: {
+                id: device.id
+            }
+        });
+
+        res.status(200).json({ msg: "Alat berhasil diperbarui" });
+
+    } catch (error) {
+        res.status(500).json({ msg: error.message });
+    }
+}
+
+// --- FUNGSI BARU UNTUK DELETE ALAT ---
+export const deleteDevice = async (req, res) => {
+    try {
+        const device = await Devices.findOne({
+            where: {
+                id: req.params.id, // Cari alat berdasarkan ID dari URL
+                userId: req.userId  // Pastikan alat ini milik user yang sedang login
+            }
+        });
+
+        if (!device) return res.status(404).json({ msg: "Alat tidak ditemukan" });
+
+        await Devices.destroy({
+            where: {
+                id: device.id
+            }
+        });
+
+        res.status(200).json({ msg: "Alat berhasil dihapus" });
+
+    } catch (error) {
+        res.status(500).json({ msg: error.message });
+    }
+}
+
 // (Opsional) Tambahkan fungsi updateDevice dan deleteDevice jika diperlukan
 // ...

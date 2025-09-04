@@ -2,7 +2,7 @@ import express from "express";
 import { getUsers,Register, Login, Logout } from "../controllers/Users.js";
 import { verifyToken } from "../middleware/VerifyToken.js"; 
 import { refreshToken } from "../controllers/RefreshToken.js";
-import { getDevices, createDevice } from "../controllers/DeviceController.js";
+import { getDevices, createDevice, updateDevice, deleteDevice } from "../controllers/DeviceController.js";
 import Devices from "../models/DeviceModel.js"; // Import model untuk sinkronisasi
 
 
@@ -23,5 +23,7 @@ router.delete('/logout', Logout);
 // Pastikan verifyToken digunakan untuk melindungi rute ini
 router.get('/alat', verifyToken, getDevices);
 router.post('/alat', verifyToken, createDevice);
+router.patch('/alat/:id', verifyToken, updateDevice);
+router.delete('/alat/:id', verifyToken, deleteDevice);
 
 export default router;

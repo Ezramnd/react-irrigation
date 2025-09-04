@@ -219,38 +219,50 @@ useEffect(() => {
   };
 
   const handleLihatDetail = (alat) => setSelectedAlat(alat);
-  const handleEdit = (alat) => setAlatToEdit(alat);
+  const handleEdit = (alat) => {
+        // Tutup modal detail jika terbuka, lalu buka modal edit
+        setSelectedAlat(null);
+        setAlatToEdit(alat);
+  };
 
   // DIUBAH: handleUpdateAlat (perlu API endpoint PUT /api/alat/:id)
   const handleUpdateAlat = async (updatedAlat) => {
-    // Implementasi mirip dengan handleTambahAlat, tapi menggunakan api.put()
-    try {
-      // ... setup axios dengan token ...
-      // await api.put(`/alat/${updatedAlat.id}`, updatedAlat);
-      setDaftarAlat(daftarAlat.map(alat => alat.id === updatedAlat.id ? updatedAlat : alat));
-      if(selectedAlat && selectedAlat.id === updatedAlat.id) {
-        setSelectedAlat(updatedAlat);
-      }
-      toast.success("Alat berhasil diperbarui!"); // Pindahkan toast ke sini
-    } catch (error) {
-      toast.error("Gagal memperbarui alat.");
-    }
+        try {
+            // Panggil endpoint PATCH di backend
+            await api.patch(`/alat/${updatedAlat.id}`, updatedAlat);
+
+            // Perbarui state di frontend agar UI langsung berubah
+            setDaftarAlat(daftarAlat.map(alat =>
+                alat.id === updatedAlat.id ? updatedAlat : alat
+            ));
+            
+            setAlatToEdit(null); // Tutup modal edit
+            toast.success("Alat berhasil diperbarui!");
+
+        } catch (error) {
+            toast.error("Gagal memperbarui alat.");
+            console.error("Error updating tool:", error);
+        }
   };
   
-  // DIUBAH: handleHapusAlat (perlu API endpoint DELETE /api/alat/:id)
   const handleHapusAlat = async (idAlat) => {
-    if (window.confirm('Apakah Anda yakin ingin menghapus alat ini?')) {
-      try {
-        // ... setup axios dengan token ...
-        // await api.delete(`/alat/${idAlat}`);
-        setDaftarAlat(prev => prev.filter(a => a.id !== idAlat));
-        toast.success('Alat berhasil dihapus!');
-        setSelectedAlat(null);
-        setAlatToEdit(null);
-      } catch(error) {
-        toast.error("Gagal menghapus alat.");
-      }
-    }
+        if (window.confirm('Apakah Anda yakin ingin menghapus alat ini?')) {
+            try {
+                // Panggil endpoint DELETE di backend
+                await api.delete(`/alat/${idAlat}`);
+
+                // Hapus alat dari state di frontend
+                setDaftarAlat(prev => prev.filter(a => a.id !== idAlat));
+                
+                toast.success('Alat berhasil dihapus!');
+                // Tutup semua modal yang mungkin terbuka untuk alat yang dihapus
+                setSelectedAlat(null);
+                setAlatToEdit(null);
+            } catch (error) {
+                toast.error("Gagal menghapus alat.");
+                console.error("Error deleting tool:", error);
+            }
+        }
   };
 
   return (

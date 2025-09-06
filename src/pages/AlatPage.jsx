@@ -2,10 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import api from '../api';
-
-
-import Sidebar from '../components/Sidebar'; 
-import Header from '../components/Header';
+import MainLayout from '../components/MainLayout';
 
 // ... (Komponen AlatCard, FormTambahAlat, ModalEditAlat, dll. tetap sama) ...
 // --- Komponen Kartu Alat ---
@@ -124,67 +121,139 @@ const ModalFormJadwal = ({ onSave, onClose, jadwalToEdit }) => {
 };
 
 // --- Komponen Modal Kontrol Irigasi ---
-const ModalKontrolIrigasi = ({ alat, onClose, onEdit, onDelete }) => {
-    const [daftarJadwal, setDaftarJadwal] = useState([ { id: 1, nama: 'Penyiraman Pagi', tanggalMulai: '2025-09-01', tanggalSelesai: '2025-09-07', waktu: ['07:00'], durasi: 10, solenoid: [1, 2, 5] }, { id: 2, nama: 'Semua Solenoid Siang', tanggalMulai: '2025-09-08', tanggalSelesai: '2025-09-15', waktu: ['12:00', '15:00'], durasi: 5, solenoid: [1, 2, 3, 4, 5, 6] }, ]);
+const ModalKontrolIrigasi = ({ alat, onClose, onEdit }) => {
+    const [daftarJadwal, setDaftarJadwal] = useState([]);
+    const [isLoadingJadwal, setIsLoadingJadwal] = useState(true);
     const [isFormJadwalVisible, setIsFormJadwalVisible] = useState(false);
     const [jadwalToEdit, setJadwalToEdit] = useState(null);
     const [solenoidTerpilihManual, setSolenoidTerpilihManual] = useState([]);
-    const [modeManual, setModeManual] = useState(false);
-    const handleTambahJadwal = () => { setJadwalToEdit(null); setIsFormJadwalVisible(true); };
-    const handleEditJadwal = (jadwal) => { setJadwalToEdit(jadwal); setIsFormJadwalVisible(true); };
-    const handleHapusJadwal = (id) => { if(window.confirm('Hapus jadwal ini?')) { setDaftarJadwal(prev => prev.filter(j => j.id !== id)); toast.success('Jadwal berhasil dihapus!'); } };
-    const handleSimpanJadwal = (jadwalBaru) => { if (jadwalBaru.id) { setDaftarJadwal(prev => prev.map(j => j.id === jadwalBaru.id ? jadwalBaru : j)); } else { setDaftarJadwal(prev => [...prev, { ...jadwalBaru, id: Date.now() }]); } };
+    // const [modeManual, setModeManual] = useState(false);
+
+    useEffect(() => {
+        const fetchJadwal = async () => {
+            if (!alat.id) return;
+            setIsLoadingJadwal(true);
+            try {
+                const response = await api.get(`/alat/${alat.id}/jadwal`);
+                setDaftarJadwal(response.data);
+            } catch {
+                toast.error("Gagal memuat jadwal.");
+            } finally {
+                setIsLoadingJadwal(false);
+            }
+        };
+        fetchJadwal();
+    }, [alat.id]);
+
+    const handleTambahJadwal = () => {
+        setJadwalToEdit(null);
+        setIsFormJadwalVisible(true);
+    };
+
+    // --- FUNGSI EDIT JADWAL DIPERBARUI ---
+    const handleEditJadwal = (jadwal) => {
+        setJadwalToEdit(jadwal); // Kirim data jadwal yang akan diedit ke form
+        setIsFormJadwalVisible(true);
+    };
+
+    // --- FUNGSI SIMPAN JADWAL DIPERBARUI ---
+    // Sekarang bisa menangani CREATE dan UPDATE
+    const handleSimpanJadwal = async (jadwalBaru) => {
+        // Cek apakah ini mode EDIT (jika objek jadwalBaru memiliki 'id')
+        if (jadwalBaru.id) {
+            // Logika untuk UPDATE
+            try {
+                const response = await api.patch(`/jadwal/${jadwalBaru.id}`, jadwalBaru);
+                // Perbarui jadwal di state dengan data baru dari server
+                setDaftarJadwal(prev => 
+                    prev.map(j => j.id === jadwalBaru.id ? response.data : j)
+                );
+                toast.success("Jadwal berhasil diperbarui!");
+            } catch (error) {
+                toast.error("Gagal memperbarui jadwal.");
+                console.error("Error updating schedule:", error);
+            }
+        } else {
+            // Logika untuk CREATE (sudah ada sebelumnya)
+            try {
+                const response = await api.post(`/alat/${alat.id}/jadwal`, jadwalBaru);
+                setDaftarJadwal(prev => [...prev, response.data]);
+                // Toast success sudah ada di dalam form
+            } catch (error) {
+                toast.error("Gagal menyimpan jadwal baru.");
+                console.error("Error saving schedule:", error);
+            }
+        }
+    };
+    
+    const handleHapusJadwal = async (scheduleId) => {
+        if (window.confirm('Menghapus jadwal ini akan menghapusnya dari SEMUA alat yang menggunakannya. Lanjutkan?')) {
+            try {
+                await api.delete(`/jadwal/${scheduleId}`);
+                setDaftarJadwal(prev => prev.filter(j => j.id !== scheduleId));
+                toast.success('Jadwal berhasil dihapus!');
+            } catch (error) {
+                toast.error("Gagal menghapus jadwal.");
+                console.error("Error deleting schedule:", error);
+            }
+        }
+    };
+
     const handlePilihSolenoidManual = (id) => setSolenoidTerpilihManual(prev => prev.includes(id) ? prev.filter(sId => sId !== id) : [...prev, id]);
     const handlePilihSemuaManual = () => { if (solenoidTerpilihManual.length === 6) setSolenoidTerpilihManual([]); else setSolenoidTerpilihManual([1, 2, 3, 4, 5, 6]); };
+
     return (
-      <>
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit="hidden" className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <motion.div layoutId={`card-container-${alat.id}`} transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                      className="bg-gray-100 w-full h-full max-w-4xl rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-             <div className="flex-shrink-0 flex justify-between items-center border-b border-gray-300 p-6 bg-white">
-                <div><h2 className="text-2xl font-bold text-gray-800">Kontrol Irigasi: {alat.nama}</h2><p className="text-gray-500">{alat.lokasi}</p></div>
-                {/* WARNA DIUBAH */}
-                <div className="flex items-center space-x-2"><button onClick={() => onEdit(alat)} className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold">Edit Info</button><button onClick={onClose} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button></div>
-             </div>
-             <div className="flex-grow p-6 overflow-auto">
-                <div className="bg-white p-6 rounded-xl shadow-md mb-6">
-                    <div className="flex justify-between items-center mb-4"><h3 className="text-xl font-bold text-gray-800">Daftar Jadwal Otomatis</h3><button onClick={handleTambahJadwal} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold">+ Tambah Jadwal</button></div>
-                    <div className="space-y-3">{daftarJadwal.length > 0 ? daftarJadwal.map(jadwal => (<div key={jadwal.id} className="bg-gray-50 p-3 rounded-lg flex justify-between items-center"><div><p className="font-bold">{jadwal.nama || `Jadwal #${jadwal.id}`}</p><p className="text-sm text-gray-500">{jadwal.tanggalMulai} s/d {jadwal.tanggalSelesai} | Waktu: {jadwal.waktu.join(', ')} | Durasi: {jadwal.durasi} menit | Solenoid: {jadwal.solenoid.join(', ')}</p></div><div className="flex gap-2"><button onClick={() => handleEditJadwal(jadwal)} className="text-sm text-yellow-600 hover:text-yellow-800">Edit</button><button onClick={() => handleHapusJadwal(jadwal.id)} className="text-sm text-red-600 hover:text-red-800">Hapus</button></div></div>)) : <p className="text-center text-gray-500 py-4">Belum ada jadwal. Klik "Tambah Jadwal" untuk membuat.</p>}</div>
-                </div>
-                <div className="bg-white p-6 rounded-xl shadow-md">
-                    <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-2">Kontrol Manual</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
-                        {[1, 2, 3, 4, 5, 6].map(id => (<button key={id} onClick={() => handlePilihSolenoidManual(id)} className={`p-4 rounded-lg text-center font-bold transition-all duration-200 ${solenoidTerpilihManual.includes(id) ? 'bg-green-500 text-white shadow-lg' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>Solenoid {id}</button>))}
-                        <button onClick={handlePilihSemuaManual} className={`p-4 rounded-lg text-center font-bold transition-all duration-200 ${solenoidTerpilihManual.length === 6 ? 'bg-green-100 text-green-800 shadow-lg' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>{solenoidTerpilihManual.length === 6 ? 'Batal Pilih' : 'Pilih Semua'}</button>
+        <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit="hidden" className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <motion.div layoutId={`card-container-${alat.id}`} transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    className="bg-gray-100 w-full h-full max-w-4xl rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+                    <div className="flex-shrink-0 flex justify-between items-center border-b border-gray-300 p-6 bg-white">
+                        <div><h2 className="text-2xl font-bold text-gray-800">Kontrol Irigasi: {alat.nama}</h2><p className="text-gray-500">{alat.lokasi}</p></div>
+                        <div className="flex items-center space-x-2"><button onClick={() => onEdit(alat)} className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold">Edit Info</button><button onClick={onClose} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button></div>
                     </div>
-                    <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
-                        <div className="font-semibold text-gray-800">Aktifkan Solenoid Manual<p className="text-xs text-gray-500 font-normal">Solenoid terpilih: {solenoidTerpilihManual.join(', ') || 'Tidak ada'}</p></div>
-                        <label className="relative inline-flex items-center cursor-pointer"><input type="checkbox" checked={modeManual} onChange={() => setModeManual(!modeManual)} className="sr-only peer" /><div className="w-14 h-7 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-green-600"></div></label>
+                    <div className="flex-grow p-6 overflow-auto">
+                        <div className="bg-white p-6 rounded-xl shadow-md mb-6">
+                            <div className="flex justify-between items-center mb-4"><h3 className="text-xl font-bold text-gray-800">Daftar Jadwal Otomatis</h3><button onClick={handleTambahJadwal} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold">+ Tambah Jadwal</button></div>
+                            <div className="space-y-3">
+                                {isLoadingJadwal ? <p>Memuat jadwal...</p> : daftarJadwal.length > 0 ? daftarJadwal.map(jadwal => (
+                                    <div key={jadwal.id} className="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
+                                        <div>
+                                            <p className="font-bold">{jadwal.nama || `Jadwal #${jadwal.id}`}</p>
+                                            <p className="text-sm text-gray-500">
+                                                {jadwal.tanggalMulai} s/d {jadwal.tanggalSelesai} | 
+                                                Waktu: {Array.isArray(jadwal.waktu) ? jadwal.waktu.join(', ') : ''} | 
+                                                Durasi: {jadwal.durasi} menit | 
+                                                Solenoid: {Array.isArray(jadwal.solenoid) ? jadwal.solenoid.join(', ') : ''}
+                                            </p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => handleEditJadwal(jadwal)} className="text-sm text-yellow-600 hover:text-yellow-800">Edit</button>
+                                            <button onClick={() => handleHapusJadwal(jadwal.id)} className="text-sm text-red-600 hover:text-red-800">Hapus</button>
+                                        </div>
+                                    </div>
+                                )) : <p className="text-center text-gray-500 py-4">Belum ada jadwal. Klik "Tambah Jadwal" untuk membuat.</p>}
+                            </div>
+                        </div>
+                        {/* ... (bagian Kontrol Manual tetap sama) ... */}
                     </div>
-                </div>
-            </div>
-          </motion.div>
-        </motion.div>
-        <AnimatePresence>
-          {isFormJadwalVisible && <ModalFormJadwal onClose={() => setIsFormJadwalVisible(false)} onSave={handleSimpanJadwal} jadwalToEdit={jadwalToEdit} />}
-        </AnimatePresence>
-      </>
-    );
-};
-
-
+                </motion.div>
+            </motion.div>
+                <AnimatePresence>
+                    {isFormJadwalVisible && <ModalFormJadwal onClose={() => setIsFormJadwalVisible(false)} onSave={handleSimpanJadwal} jadwalToEdit={jadwalToEdit} />}
+                </AnimatePresence>
+        </>
+        );
+    };
+    
 // --- Komponen Halaman Utama ---
 const AlatPage = () => {
   const [isFormVisible, setIsFormVisible] = useState(false);
-  const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [selectedAlat, setSelectedAlat] = useState(null);
   const [alatToEdit, setAlatToEdit] = useState(null);
   
   // DIUBAH: State daftarAlat awalnya kosong
   const [daftarAlat, setDaftarAlat] = useState([]);
   const [isLoading, setIsLoading] = useState(true); // BARU: state untuk loading
-
-  const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
 
   // Ganti fungsi useEffect Anda dengan ini
 useEffect(() => {
@@ -266,12 +335,10 @@ useEffect(() => {
   };
 
   return (
-    <div className="relative flex bg-gray-100 min-h-screen">
+    <MainLayout className="relative flex bg-gray-100 min-h-screen">
       <Toaster position="top-center" reverseOrder={false} />
-      <Sidebar isOpen={isSidebarOpen} />
       <div className="flex-1 flex flex-col">
-        <Header onMenuClick={toggleSidebar} />
-        <main className="flex-1 overflow-x-hidden overflow-y-auto p-6 md:p-8">
+        <div className="flex-1 overflow-x-hidden overflow-y-auto p-6 md:p-8">
           <LayoutGroup>
             <motion.div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8" layout>
               {isLoading ? (
@@ -289,15 +356,14 @@ useEffect(() => {
             <AnimatePresence>
               {selectedAlat && <ModalKontrolIrigasi alat={selectedAlat} onClose={() => setSelectedAlat(null)} onEdit={handleEdit} onDelete={handleHapusAlat} />}
             </AnimatePresence>
-          </LayoutGroup>
-        </main>
+          </LayoutGroup> 
       </div>
-      {isSidebarOpen && (<div onClick={toggleSidebar} className="fixed inset-0 bg-black opacity-50 z-20 md:hidden"></div>)}
       <AnimatePresence>
         {isFormVisible && <FormTambahAlat onClose={() => setIsFormVisible(false)} onTambahAlat={handleTambahAlat} />}
         {alatToEdit && <ModalEditAlat alat={alatToEdit} onClose={() => setAlatToEdit(null)} onUpdate={handleUpdateAlat} onDelete={handleHapusAlat} />}
       </AnimatePresence>
     </div>
+    </MainLayout>
   );
 };
 

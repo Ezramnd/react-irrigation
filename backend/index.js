@@ -9,6 +9,7 @@ import db from "./config/Database.js";
 import router from "./routes/index.js";
 import Users from "./models/UserModel.js";
 import Devices from "./models/DeviceModel.js";
+import Schedules from "./models/ScheduleModel.js";
 
 // --- Konfigurasi yang Diperbaiki ---
 const MQTT_BROKER_URL = 'mqtt://localhost'; 
@@ -30,9 +31,19 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 
-// --- LETAKKAN DEFINISI RELASI DI SINI ---
+// --- DEFINISI RELASI ---
+// Relasi yang sudah ada
 Users.hasMany(Devices, { foreignKey: 'userId' });
 Devices.belongsTo(Users, { foreignKey: 'userId' });
+
+// Relasi baru untuk Jadwal
+Users.hasMany(Schedules, { foreignKey: 'userId' });
+Schedules.belongsTo(Users, { foreignKey: 'userId' });
+
+// Relasi Many-to-Many antara Devices dan Schedules
+Devices.belongsToMany(Schedules, { through: 'device_schedules', foreignKey: 'deviceId' });
+Schedules.belongsToMany(Devices, { through: 'device_schedules', foreignKey: 'scheduleId' });
+// --------------------
 
 // Socket.IO setup
 const io = new Server(server, {

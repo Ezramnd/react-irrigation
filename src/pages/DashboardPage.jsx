@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import Sidebar from '../components/Sidebar';
-import Header from '../components/Header';
 import RealtimeApexChart from "../components/RealtimeApexChart";
+import MainLayout from '../components/MainLayout';
 
 // --- Komponen Ikon Tren (untuk naik/turun) ---
 const TrendIcon = ({ trendType }) => {
@@ -114,8 +113,6 @@ const DataTable = () => {
 
 // --- Komponen Halaman Utama ---
 const DashboardPage = () => {
-  const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
 
   const statsData = [
     { title: 'Suhu', value: '28.5', unit: '°C', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16V4a4 4 0 10-8 0v12a4 4 0 108 0zM13 16a2 2 0 11-4 0 2 2 0 014 0z" /></svg> },
@@ -128,11 +125,9 @@ const DashboardPage = () => {
   const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 100 } } };
 
   return (
-    <div className="relative flex bg-gray-100 min-h-screen">
-      <Sidebar isOpen={isSidebarOpen} />
+    <MainLayout className="relative flex bg-gray-100 min-h-screen">  
       {/* KODE YANG DIPERBAIKI ADA DI BARIS DI BAWAH INI */}
       <div className="flex-1 flex flex-col">
-        <Header onMenuClick={toggleSidebar} />
         <main className="flex-1 overflow-x-hidden overflow-y-auto p-6">
           <motion.div variants={containerVariants} initial="hidden" animate="visible">
            
@@ -158,10 +153,8 @@ const DashboardPage = () => {
           </motion.div>
         </main>
       </div>
-      {isSidebarOpen && <div onClick={toggleSidebar} className="fixed inset-0 bg-black opacity-50 z-20 md:hidden"></div>}
-    </div>
+    </MainLayout>
   );
 };
 
 export default DashboardPage;
-

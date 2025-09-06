@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import Sidebar from '../components/Sidebar';
-import Header from '../components/Header';
 import { io } from 'socket.io-client';
+import MainLayout from '../components/MainLayout'; // <-- 1. Impor MainLayout 
 
 // --- Konfigurasi Socket.IO ---
 const BACKEND_URL = 'http://localhost:5000';
@@ -57,10 +56,6 @@ const ConnectionStatus = ({ isConnected }) => (
 
 // --- Komponen Halaman Utama ESP ---
 const EspPage = () => {
-  // State untuk sidebar responsive
-  const [isSidebarOpen, setSidebarOpen] = useState(false);
-  const toggleSidebar = () => setSidebarOpen(!isSidebarOpen);
-
   // State untuk status LED dan riwayat kontrol
   const [ledStatus, setLedStatus] = useState('MATI');
   const [history, setHistory] = useState([]);
@@ -191,11 +186,7 @@ const EspPage = () => {
   const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1, transition: { type: 'spring', stiffness: 100 } } };
 
   return (
-    <div className="relative flex bg-slate-100 min-h-screen">
-      <Sidebar isOpen={isSidebarOpen} />
-      <div className="flex-1 flex flex-col">
-        <Header onMenuClick={toggleSidebar} />
-        <main className="flex-1 overflow-x-hidden overflow-y-auto p-6">
+        <MainLayout className="flex-1 overflow-x-hidden overflow-y-auto p-6">
           <motion.div variants={containerVariants} initial="hidden" animate="visible">
 
             {/* Panel Kontrol Utama */}
@@ -346,11 +337,7 @@ const EspPage = () => {
             </div>
 
           </motion.div>
-        </main>
-      </div>
-
-      {isSidebarOpen && <div onClick={toggleSidebar} className="fixed inset-0 bg-black opacity-50 z-20 md:hidden"></div>}
-    </div>
+        </MainLayout>
   );
 };
 

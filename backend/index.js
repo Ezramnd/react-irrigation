@@ -10,11 +10,16 @@ import router from "./routes/index.js";
 import Users from "./models/UserModel.js";
 import Devices from "./models/DeviceModel.js";
 import Schedules from "./models/ScheduleModel.js";
+import { setMqttClient } from './mqttNotifier.js';
+import cron from 'node-cron';
+import { Op } from 'sequelize';
 
 // --- Konfigurasi yang Diperbaiki ---
 const MQTT_BROKER_URL = 'mqtt://localhost'; 
 const MQTT_TOPIC_SENSOR = 'esp32/sensor/suhu';
 const MQTT_TOPIC_PERINTAH = 'esp32/led/control';
+const MQTT_TOPIC_TIME = 'esp32/waktu';
+const MQTT_TOPIC_JADWAL = 'esp32/jadwal/set';
 const MQTT_TOPIC_STATUS = 'esp32/status'; // Topik baru untuk status LWT
 const FRONTEND_URL = "http://localhost:5173";
 const PORT = 5000;
@@ -75,6 +80,7 @@ let mqttClient;
 function connectMQTT() {
     console.log('🔄 Menghubungkan ke MQTT Broker...');
     mqttClient = mqtt.connect(MQTT_BROKER_URL, mqttOptions);
+    setMqttClient(mqttClient);
     
     mqttClient.on('connect', () => {
         mqttConnected = true;

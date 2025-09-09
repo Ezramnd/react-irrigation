@@ -129,6 +129,27 @@ const ModalKontrolIrigasi = ({ alat, onClose, onEdit }) => {
     const [solenoidTerpilihManual, setSolenoidTerpilihManual] = useState([]);
     // const [modeManual, setModeManual] = useState(false);
 
+    // Animation variants for proper exit animation
+    const backdropVariants = {
+        hidden: { opacity: 0 },
+        visible: { opacity: 1 },
+        exit: { opacity: 0, transition: { duration: 0.3 } }
+    };
+
+    const modalVariants = {
+        hidden: { opacity: 0, scale: 0.9 },
+        visible: { 
+            opacity: 1, 
+            scale: 1, 
+            transition: { type: "spring", stiffness: 300, damping: 30 } 
+        },
+        exit: { 
+            opacity: 0, 
+            scale: 0.9, 
+            transition: { duration: 0.2 } 
+        }
+    };
+
     useEffect(() => {
         const fetchJadwal = async () => {
             if (!alat.id) return;
@@ -204,9 +225,22 @@ const ModalKontrolIrigasi = ({ alat, onClose, onEdit }) => {
 
     return (
         <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit="hidden" className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                <motion.div layoutId={`card-container-${alat.id}`} transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    className="bg-gray-100 w-full h-full max-w-4xl rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+            <motion.div 
+                variants={backdropVariants}
+                initial="hidden" 
+                animate="visible" 
+                exit="exit" 
+                className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                onClick={onClose}>
+                <motion.div 
+                    layoutId={`card-container-${alat.id}`} 
+                    variants={modalVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    className="bg-gray-100 w-full h-full max-w-4xl rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+                    onClick={(e) => e.stopPropagation()}>
                     <div className="flex-shrink-0 flex justify-between items-center border-b border-gray-300 p-6 bg-white">
                         <div><h2 className="text-2xl font-bold text-gray-800">Kontrol Irigasi: {alat.nama}</h2><p className="text-gray-500">{alat.lokasi}</p></div>
                         <div className="flex items-center space-x-2"><button onClick={() => onEdit(alat)} className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold">Edit Info</button><button onClick={onClose} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button></div>

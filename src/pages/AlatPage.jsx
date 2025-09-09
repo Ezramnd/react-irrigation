@@ -59,25 +59,66 @@ const FormTambahAlat = ({ onClose, onTambahAlat }) => {
     );
 };
 
-// --- Komponen Modal Edit Alat ---
 const ModalEditAlat = ({ alat, onClose, onUpdate, onDelete }) => {
     const [formData, setFormData] = useState(alat);
+    
     useEffect(() => { setFormData(alat); }, [alat]);
-    const handleChange = (e) => { const { name, value } = e.target; setFormData(prev => ({ ...prev, [name]: value })); };
-    const handleUpdate = (e) => { e.preventDefault(); if (!formData.nama.trim() || !formData.jenis.trim() || !formData.lokasi.trim()) { toast.error('Semua field wajib diisi!'); return; } onUpdate(formData); toast.success('Informasi alat berhasil diperbarui!'); onClose(); };
-    const handleDelete = () => { onDelete(alat.id); onClose(); };
+    
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+    
+    const handleUpdate = (e) => {
+        e.preventDefault();
+        if (!formData.nama.trim() || !formData.jenis.trim() || !formData.lokasi.trim()) {
+            toast.error('Nama, Jenis, dan Lokasi wajib diisi!');
+            return;
+        }
+        onUpdate(formData);
+        onClose(); 
+    };
+
+    const handleDelete = () => {
+        onDelete(alat.id);
+        onClose();
+    };
+
     const backdropVariants = { hidden: { opacity: 0 }, visible: { opacity: 1 } };
     const modalVariants = { hidden: { y: "-50px", opacity: 0 }, visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 300, damping: 30 } }, exit: { opacity: 0, scale: 0.9, transition: { duration: 0.15 } } };
+    
     return (
         <motion.div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] p-4" variants={backdropVariants} initial="hidden" animate="visible" exit="exit" onClick={onClose}>
             <motion.div className="bg-gradient-to-br from-white to-gray-50 p-8 rounded-3xl shadow-xl border border-gray-100 w-full max-w-lg relative" variants={modalVariants} initial="hidden" animate="visible" exit="exit" onClick={(e) => e.stopPropagation()}>
                 <div className="flex justify-between items-center mb-6 border-b pb-4 border-gray-200"><h2 className="text-3xl font-extrabold text-gray-800">Edit Alat</h2><button onClick={onClose} className="p-2 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-all duration-200 focus:outline-none"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button></div>
                 <form onSubmit={handleUpdate} className="space-y-6">
-                    {/* WARNA DIUBAH */}
                     <div><label className="block text-sm font-semibold text-gray-700 mb-1">Nama Alat</label><input required type="text" name="nama" value={formData.nama} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500"/></div>
                     <div><label className="block text-sm font-semibold text-gray-700 mb-1">Jenis Alat</label><input required type="text" name="jenis" value={formData.jenis} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500"/></div>
                     <div><label className="block text-sm font-semibold text-gray-700 mb-1">Lokasi Alat</label><input required type="text" name="lokasi" value={formData.lokasi} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500"/></div>
                     <div className="relative"><label className="block text-sm font-semibold text-gray-700 mb-1">Status Alat</label><select name="status" value={formData.status} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none pr-8"><option value="active">Aktif</option><option value="inactive">Tidak Aktif</option><option value="maintenance">Perawatan</option></select><div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pt-6 px-4 text-gray-700"><svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg></div></div>
+                    
+                    {/* --- TAMBAHAN UNTUK MAC ADDRESS --- */}
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                            MAC Address Perangkat
+                        </label>
+                        {alat.macAddress ? (
+                            <p className="w-full p-3 border border-gray-200 rounded-xl bg-gray-200 text-gray-500 font-mono">
+                                {alat.macAddress}
+                            </p>
+                        ) : (
+                            <input
+                                type="text"
+                                name="macAddress" // Nama harus cocok dengan field di state dan database
+                                value={formData.macAddress || ''}
+                                onChange={handleChange}
+                                className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 font-mono"
+                                placeholder="Contoh: AA:BB:CC:11:22:33"
+                            />
+                        )}
+                    </div>
+                    {/* ------------------------------------ */}
+
                     <div className="flex justify-between items-center pt-6 border-t border-gray-200 mt-8">
                         <motion.button type="button" onClick={handleDelete} className="px-6 py-3 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 font-semibold shadow-sm">Hapus Alat</motion.button>
                         <div className="space-x-3"><motion.button type="button" onClick={onClose} className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-semibold shadow-md">Batal</motion.button><motion.button type="submit" className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 font-semibold shadow-md">Simpan Perubahan</motion.button></div>

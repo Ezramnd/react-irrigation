@@ -4,7 +4,7 @@ import { Server } from 'socket.io';
 import mqtt from 'mqtt';
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
-import cors from "cors"
+import cors from "cors";
 import db from "./config/Database.js";
 import router from "./routes/index.js";
 import Users from "./models/UserModel.js";
@@ -21,6 +21,7 @@ const MQTT_TOPIC_PERINTAH = 'esp32/led/control';
 const MQTT_TOPIC_TIME = 'esp32/waktu';
 const MQTT_TOPIC_JADWAL = 'esp32/jadwal/set';
 const MQTT_TOPIC_STATUS = 'esp32/status'; // Topik baru untuk status LWT
+const MQTT_TOPIC_INFO = 'esp32/info';
 const FRONTEND_URL = "http://localhost:5173";
 const PORT = 5000;
 
@@ -77,6 +78,25 @@ app.use(router);
 let mqttConnected = false;
 let mqttClient;
 
+// --- State In-Memory untuk Data Real-time ESP32 ---
+let esp32DeviceData = {
+    id: 'ESP32Client-RuangKontrol', // Sesuaikan dengan ClientID di ESP32 Anda
+    namaEsp: 'ESP32 Ruang Kontrol',
+    lokasi: 'Gudang Utama',
+    status: 'inactive', // 'inactive' atau 'active'
+    detail: {
+        ipAddress: 'N/A',
+        chipId: 'N/A',
+        firmware: 'N/A',
+        mqtt: {
+            status: 'disconnected',
+            broker: MQTT_BROKER_URL
+        },
+        wifi: { ssid: 'N/A' },
+        history: []
+    }
+};
+
 function connectMQTT() {
     console.log('🔄 Menghubungkan ke MQTT Broker...');
     mqttClient = mqtt.connect(MQTT_BROKER_URL, mqttOptions);
@@ -103,12 +123,31 @@ function connectMQTT() {
     mqttClient.on('error', (err) => {
         mqttConnected = false;
         console.error('❌ Error koneksi MQTT:', err);
+        esp32DeviceData.detail.mqtt.status = 'disconnected';
+        io.emit('device-update', esp32DeviceData);
     });
 
     mqttClient.on('message', (topic, message) => {
         const messageStr = message.toString();
         console.log(`📩 Menerima pesan dari topik ${topic}: ${messageStr}`);
-        
+         const logEntry = { timestamp: new Date().toLocaleTimeString('id-ID'), message: `[${topic.split('/').pop()}] ${messageStr}` };
+        esp32DeviceData.detail.history.unshift(logEntry);
+        if (esp32DeviceData.detail.history.length > 20) esp32DeviceData.detail.history.pop();
+        if (topic === MQTT_TOPIC_STATUS) {
+            esp32DeviceData.status = messageStr === 'online' ? 'active' : 'inactive';
+        } else if (topic === MQTT_TOPIC_INFO) {
+            try {
+                const info = JSON.parse(messageStr);
+                esp32DeviceData.detail.ipAddress = info.ipAddress;
+                esp32DeviceData.detail.chipId = info.chipId;
+                esp32DeviceData.detail.firmware = info.firmware;
+                esp32DeviceData.detail.wifi.ssid = info.ssid;
+            } catch (e) {
+                console.error("Gagal parse JSON dari topik info:", e);
+            }
+        }
+        io.emit('device-update', esp32DeviceData);
+
         if (topic === MQTT_TOPIC_SENSOR) {
             try {
                 const data = JSON.parse(messageStr);
@@ -133,47 +172,22 @@ function connectMQTT() {
 // Inisialisasi koneksi MQTT
 connectMQTT();
 
-// --- Socket.IO Logic ---
+// --- Logika Socket.IO ---
 io.on('connection', (socket) => {
     console.log('✅ Client web terhubung via WebSocket:', socket.id);
-    
-    // Kirim status koneksi MQTT saat client terhubung
-    socket.emit('mqtt-status', { connected: mqttConnected });
 
-    // Handler untuk perintah LED dari client web
-    socket.on('perintah-led', (data) => {
-        console.log(`📤 Menerima perintah dari web:`, data);
-        
-        const validCommands = ['ON', 'OFF', 'MODE1', 'MODE2'];
-        if (!validCommands.includes(data)) {
-            console.error('❌ Perintah tidak valid:', data);
-            socket.emit('error', { message: 'Perintah tidak valid' });
-            return;
-        }
-        
-        if (mqttConnected) {
-            mqttClient.publish(MQTT_TOPIC_PERINTAH, data, { qos: 1 }, (err) => {
-                if (err) {
-                    console.error('❌ Gagal mengirim perintah:', err);
-                    socket.emit('command-status', { 
-                        success: false, 
-                        message: 'Gagal mengirim perintah ke ESP32' 
-                    });
-                } else {
-                    console.log('✅ Perintah berhasil dikirim ke MQTT');
-                    socket.emit('command-status', { 
-                        success: true, 
-                        command: data,
-                        timestamp: new Date().toISOString()
-                    });
-                }
-            });
+    socket.emit('device-update', esp32DeviceData);
+
+    socket.on('perintah-led', (command) => {
+        console.log(`📤 Menerima perintah dari web:`, command);
+        if (mqttClient && mqttClient.connected) {
+            mqttClient.publish(TOPICS.CONTROL, command);
+
+            const logEntry = { timestamp: new Date().toLocaleTimeString('id-ID'), message: `CMD: ${command}` };
+            esp32DeviceData.detail.history.unshift(logEntry);
+            io.emit('device-update', esp32DeviceData);
         } else {
-            console.error('❌ MQTT tidak terhubung, tidak dapat mengirim perintah');
-            socket.emit('command-status', { 
-                success: false, 
-                message: 'Server tidak terhubung ke MQTT Broker' 
-            });
+            console.error('❌ MQTT tidak terhubung, perintah gagal dikirim.');
         }
     });
 

@@ -243,10 +243,15 @@ const ModalKontrolIrigasi = ({ alat, onClose, onEdit }) => {
     const handlePilihSolenoidManual = (id) => setSolenoidTerpilihManual(prev => prev.includes(id) ? prev.filter(sId => sId !== id) : [...prev, id]);
     const handlePilihSemuaManual = () => { if (solenoidTerpilihManual.length === 6) setSolenoidTerpilihManual([]); else setSolenoidTerpilihManual([1, 2, 3, 4, 5, 6]); };
 
+    
     return (
         <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit="hidden" className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                <motion.div layoutId={`card-container-${alat.id}`} transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
                     className="bg-gray-100 w-full h-full max-w-4xl rounded-2xl shadow-2xl flex flex-col overflow-hidden">
                     <div className="flex-shrink-0 flex justify-between items-center border-b border-gray-300 p-6 bg-white">
                         <div><h2 className="text-2xl font-bold text-gray-800">Kontrol Irigasi: {alat.nama}</h2><p className="text-gray-500">{alat.lokasi}</p></div>

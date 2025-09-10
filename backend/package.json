@@ -20,6 +20,7 @@
     "jsonwebtoken": "^9.0.2",
     "mqtt": "^5.14.0",
     "mysql2": "^3.14.3",
+    "node-cron": "^4.2.1",
     "sequelize": "^6.37.7",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1"

@@ -76,126 +76,71 @@ app.use(router);
 
 // --- Fungsi Pembantu untuk MQTT ---
 let mqttConnected = false;
+// --- LOGIKA UTAMA MQTT & SOCKET.IO ---
 let mqttClient;
 
-// --- State In-Memory untuk Data Real-time ESP32 ---
-let esp32DeviceData = {
-    id: 'ESP32Client-RuangKontrol', // Sesuaikan dengan ClientID di ESP32 Anda
-    namaEsp: 'ESP32 Ruang Kontrol',
-    lokasi: 'Gudang Utama',
-    status: 'inactive', // 'inactive' atau 'active'
-    detail: {
-        ipAddress: 'N/A',
-        chipId: 'N/A',
-        firmware: 'N/A',
-        mqtt: {
-            status: 'disconnected',
-            broker: MQTT_BROKER_URL
-        },
-        wifi: { ssid: 'N/A' },
-        history: []
-    }
-};
-
-function connectMQTT() {
+async function connectMQTT() {
     console.log('🔄 Menghubungkan ke MQTT Broker...');
-    mqttClient = mqtt.connect(MQTT_BROKER_URL, mqttOptions);
+    mqttClient = mqtt.connect(MQTT_BROKER_URL);
     setMqttClient(mqttClient);
     
-    mqttClient.on('connect', () => {
-        mqttConnected = true;
+    mqttClient.on('connect', async () => {
         console.log('✅ Terhubung ke MQTT Broker');
         
-        // Berlangganan ke topik sensor DAN topik status
-        mqttClient.subscribe([MQTT_TOPIC_SENSOR, MQTT_TOPIC_STATUS], (err) => {
-            if (!err) {
-                console.log(`✅ Berhasil subscribe ke topik: ${MQTT_TOPIC_SENSOR} & ${MQTT_TOPIC_STATUS}`);
-            } else {
-                console.error('❌ Gagal subscribe:', err);
-            }
+        // Subscribe ke topik perkenalan umum
+        mqttClient.subscribe('esp32/perkenalan', (err) => {
+            if (!err) console.log(`✅ Berhasil subscribe ke topik perkenalan`);
+        });
+
+        // Ambil semua alat yang sudah terdaftar & punya MAC
+        const registeredDevices = await Devices.findAll({ where: { macAddress: { [Op.ne]: null } } });
+        console.log(`Menyiapkan listener untuk ${registeredDevices.length} perangkat terdaftar...`);
+
+        // Subscribe ke topik status unik untuk setiap alat
+        registeredDevices.forEach(device => {
+            let macTopic = device.macAddress.replace(/:/g, '-');
+            const statusTopic = `esp32/status/${macTopic}`;
+            mqttClient.subscribe(statusTopic, (err) => {
+                if (!err) console.log(`  -> Berhasil subscribe ke ${statusTopic}`);
+            });
         });
     });
 
-    mqttClient.on('reconnect', () => {
-        console.log('🔄 Mencoba menghubungkan ulang ke MQTT Broker...');
-    });
-
-    mqttClient.on('error', (err) => {
-        mqttConnected = false;
-        console.error('❌ Error koneksi MQTT:', err);
-        esp32DeviceData.detail.mqtt.status = 'disconnected';
-        io.emit('device-update', esp32DeviceData);
-    });
-
-    mqttClient.on('message', (topic, message) => {
+    mqttClient.on('message', async (topic, message) => {
         const messageStr = message.toString();
         console.log(`📩 Menerima pesan dari topik ${topic}: ${messageStr}`);
-         const logEntry = { timestamp: new Date().toLocaleTimeString('id-ID'), message: `[${topic.split('/').pop()}] ${messageStr}` };
-        esp32DeviceData.detail.history.unshift(logEntry);
-        if (esp32DeviceData.detail.history.length > 20) esp32DeviceData.detail.history.pop();
-        if (topic === MQTT_TOPIC_STATUS) {
-            esp32DeviceData.status = messageStr === 'online' ? 'active' : 'inactive';
-        } else if (topic === MQTT_TOPIC_INFO) {
+        
+        // Cek apakah ini pesan status dari ESP32
+        if (topic.startsWith('esp32/status/')) {
             try {
-                const info = JSON.parse(messageStr);
-                esp32DeviceData.detail.ipAddress = info.ipAddress;
-                esp32DeviceData.detail.chipId = info.chipId;
-                esp32DeviceData.detail.firmware = info.firmware;
-                esp32DeviceData.detail.wifi.ssid = info.ssid;
+                const macFromTopic = topic.split('/')[2].replace(/-/g, ':');
+                const statusData = JSON.parse(messageStr);
+
+                // Update data di database
+                await Devices.update(
+                    { status: 'active', details: statusData },
+                    { where: { macAddress: macFromTopic } }
+                );
+
+                // Ambil data lengkap alat untuk dikirim ke frontend
+                const updatedDevice = await Devices.findOne({ 
+                    where: { macAddress: macFromTopic },
+                    include: Users 
+                });
+
+                if (updatedDevice) {
+                    // Siarkan pembaruan ke semua klien web yang terhubung
+                    io.emit('device-update', updatedDevice.toJSON());
+                    console.log(`📢 Menyiarkan pembaruan untuk perangkat: ${updatedDevice.nama}`);
+                }
             } catch (e) {
-                console.error("Gagal parse JSON dari topik info:", e);
+                console.error("❌ Gagal memproses pesan status:", e);
             }
         }
-        io.emit('device-update', esp32DeviceData);
-
-        if (topic === MQTT_TOPIC_SENSOR) {
-            try {
-                const data = JSON.parse(messageStr);
-                io.emit('data-sensor', data);
-            } catch{
-                io.emit('data-sensor', messageStr);
-            }
-        } 
-        // Logika baru untuk menangani pesan status dari ESP32
-        else if (topic === MQTT_TOPIC_STATUS) {
-            io.emit('esp-status', { status: messageStr });
-            console.log(`✅ Mengirim status ESP32 ke klien web: ${messageStr}`);
-        }
-    });
-
-    mqttClient.on('offline', () => {
-        mqttConnected = false;
-        console.log('❌ MQTT Broker offline');
     });
 }
 
-// Inisialisasi koneksi MQTT
 connectMQTT();
-
-// --- Logika Socket.IO ---
-io.on('connection', (socket) => {
-    console.log('✅ Client web terhubung via WebSocket:', socket.id);
-
-    socket.emit('device-update', esp32DeviceData);
-
-    socket.on('perintah-led', (command) => {
-        console.log(`📤 Menerima perintah dari web:`, command);
-        if (mqttClient && mqttClient.connected) {
-            mqttClient.publish(TOPICS.CONTROL, command);
-
-            const logEntry = { timestamp: new Date().toLocaleTimeString('id-ID'), message: `CMD: ${command}` };
-            esp32DeviceData.detail.history.unshift(logEntry);
-            io.emit('device-update', esp32DeviceData);
-        } else {
-            console.error('❌ MQTT tidak terhubung, perintah gagal dikirim.');
-        }
-    });
-
-    socket.on('disconnect', () => {
-        console.log('❌ Client web terputus:', socket.id);
-    });
-});
-
 // API endpoint untuk cek status MQTT
 app.get('/api/mqtt-status', (req, res) => {
     res.json({ 

@@ -40,6 +40,11 @@ const Devices = db.define('devices', {
         defaultValue: 'active',
         allowNull: false
     },
+    macAddress: {
+        type: DataTypes.STRING(18), // Format: "AA:BB:CC:DD:EE:FF"
+        allowNull: true, // Boleh null awalnya, sampai perangkat mendaftar
+        unique: true
+    },
     userId: { // Ini adalah Foreign Key
         type: DataTypes.INTEGER,
         allowNull: false,

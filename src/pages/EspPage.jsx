@@ -5,9 +5,9 @@ import toast, { Toaster } from 'react-hot-toast';
 import api from '../api'; // Impor api client Anda
 
 import MainLayout from '../components/MainLayout.jsx';
-import EspCard from '../components/EspCard.jsx';
-import ModalDetailEsp from '../components/ModalDetailEsp.jsx';
-import ModalEditWifi from '../components/ModalEditWifi.jsx';
+// import EspCard from '../components/EspCard.jsx';
+// import ModalDetailEsp from '../components/ModalDetailEsp.jsx';
+// import ModalEditWifi from '../components/ModalEditWifi.jsx';
 
 const socket = io('http://localhost:5000');
 
@@ -63,6 +63,14 @@ const EspPage = () => {
     const handleOpenEditWifi = () => setIsEditWifiVisible(true);
     const handleCloseEditWifi = () => setIsEditWifiVisible(false);
 
+     // --- TAMBAHKAN FUNGSI YANG HILANG DI SINI ---
+    const handleLedCommand = (command) => {
+        console.log(`Mengirim perintah: ${command}`);
+        socket.emit('perintah-led', command); // Kirim perintah ke backend via Socket.IO
+        toast.success(`Perintah "${command}" terkirim!`);
+    };
+
+
     // ... (sisa handler Anda) ...
     const handleSaveWifi = (wifiData, setIsLoadingCallback) => {
         // Implementasi sesungguhnya akan ada di sini
@@ -87,7 +95,21 @@ const EspPage = () => {
                 </div>
             </div>
             <AnimatePresence>
-                {/* ... (Modal Anda tetap sama) ... */}
+                {selectedEsp && (
+                <ModalDetailEsp 
+                    esp={selectedEsp} 
+                    onClose={handleCloseDetail} 
+                    onEditWifi={handleOpenEditWifi}
+                    onCommand={handleLedCommand} // <-- Menghubungkan fungsi perintah
+                />
+                )}
+                {isEditWifiVisible && selectedEsp && (
+                <ModalEditWifi
+                    currentSsid={selectedEsp.detail.wifi.ssid}
+                    onClose={handleCloseEditWifi}
+                    onSave={handleSaveWifi}
+                />
+                )}
             </AnimatePresence>
         </MainLayout>
     );

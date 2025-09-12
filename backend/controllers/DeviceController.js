@@ -1,13 +1,22 @@
 import Devices from "../models/DeviceModel.js";
 import Users from "../models/UserModel.js";
 
-// --- FUNGSI GET DEVICES (Tidak Berubah) ---
 export const getDevices = async (req, res) => {
     try {
-        const response = await Devices.findAll({
-            where: { userId: req.userId },
-            include: [{ model: Users, attributes: ['name', 'email'] }]
-        });
+        let options = {
+            include: [{
+                model: Users,
+                attributes: ['name', 'email']
+            }]
+        };
+
+        // --- LOGIKA PERAN DITERAPKAN DI SINI ---
+        if (req.role === "user") {
+            options.where = { userId: req.userId };
+        }
+        // Jika admin, 'where' akan kosong, sehingga mengambil semua data.
+
+        const response = await Devices.findAll(options);
         res.status(200).json(response);
     } catch (error) {
         res.status(500).json({ msg: error.message });
@@ -32,56 +41,36 @@ export const createDevice = async (req, res) => {
     }
 }
 
-// --- FUNGSI UPDATE DEVICE (DENGAN LOGGING DETAIL) ---
 export const updateDevice = async (req, res) => {
-    console.log("--- Memulai proses update alat ---");
     try {
         const device = await Devices.findOne({
-            where: {
-                id: req.params.id,
-                userId: req.userId
-            }
+            where: { id: req.params.id, userId: req.userId }
         });
-
-        if (!device) {
-            console.log("DEBUG: Alat tidak ditemukan atau bukan milik user. Mengirim 404.");
-            return res.status(404).json({ msg: "Alat tidak ditemukan" });
-        }
-        
-        console.log("DEBUG: Alat ditemukan:", device.toJSON());
-        console.log("DEBUG: Data yang diterima dari frontend (req.body):", req.body);
+        if (!device) return res.status(404).json({ msg: "Alat tidak ditemukan" });
 
         const { nama, jenis, lokasi, status, macAddress } = req.body;
         
-        // Cek jika ada MAC address yang dikirim
         if (macAddress && macAddress !== device.macAddress) {
-            console.log(`DEBUG: Memvalidasi MAC Address baru: ${macAddress}`);
-            const existingMac = await Devices.findOne({ where: { macAddress: macAddress } });
-
+            const existingMac = await Devices.findOne({ where: { macAddress } });
             if (existingMac) {
-                console.log("DEBUG: MAC Address sudah digunakan. Mengirim 409.");
-                return res.status(409).json({ msg: "MAC Address ini sudah digunakan oleh alat lain." });
+                return res.status(409).json({ msg: "MAC Address ini sudah digunakan." });
             }
-            console.log("DEBUG: MAC Address tersedia.");
         }
         
-        console.log("DEBUG: Melakukan proses update ke database...");
         await device.update({ 
-            nama, 
-            jenis, 
-            lokasi, 
+            nama, jenis, lokasi, 
             status: macAddress ? 'active' : device.status,
             macAddress: macAddress || device.macAddress
         });
-        console.log("DEBUG: Update ke database berhasil.");
+
+        // TIDAK ADA LAGI PANGGILAN subscribeToDeviceStatus
 
         res.status(200).json({ msg: "Alat berhasil diperbarui" });
-
     } catch (error) {
-        console.error("❌ Terjadi error di dalam updateDevice:", error);
         res.status(500).json({ msg: error.message });
     }
-}
+};
+
 
 // --- FUNGSI BARU UNTUK DELETE ALAT ---
 export const deleteDevice = async (req, res) => {

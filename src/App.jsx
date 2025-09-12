@@ -6,6 +6,7 @@ import AlatPage from './pages/AlatPage';
 import EspPage from './pages/EspPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
+import UsersPage from './pages/UsersPage';
 
 function App() {
   return (
@@ -22,7 +23,8 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/alat" element={<AlatPage />} />
-          <Route path="/esp" element={<EspPage />} />
+          {/* <Route path="/esp" element={<EspPage />} /> */}
+           <Route path="/users" element={<UsersPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

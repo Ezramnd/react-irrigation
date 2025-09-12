@@ -45,10 +45,10 @@ const Devices = db.define('devices', {
         allowNull: true, // Boleh null awalnya, sampai perangkat mendaftar
         unique: true
     },
-     details: {
-        type: DataTypes.JSON,
-        allowNull: true
-    },
+    //  details: {
+    //     type: DataTypes.JSON,
+    //     allowNull: true
+    // },
     userId: { // Ini adalah Foreign Key
         type: DataTypes.INTEGER,
         allowNull: false,

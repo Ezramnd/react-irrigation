@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
 import agrifamLogo from '../assets/agrifam.jpg';
 import api from '../api';
 
@@ -22,6 +23,7 @@ const EyeIcon = ({ isOpen }) => (
 
 const LoginPage = () => {
     const navigate = useNavigate();
+    const { login } = useAuth(); 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -35,6 +37,9 @@ const LoginPage = () => {
         setErrorMsg('');
         try {
             const response = await api.post('/login', { email, password, keepLoggedIn });
+             // --- 3. GUNAKAN FUNGSI LOGIN DARI CONTEXT ---
+            login(response.data.accessToken); 
+            // ----------------------------------------
             localStorage.setItem('token', response.data.accessToken);
             setTimeout(() => navigate('/dashboard'), 500);
         } catch (error) {

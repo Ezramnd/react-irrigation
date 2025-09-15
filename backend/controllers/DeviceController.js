@@ -48,20 +48,22 @@ export const updateDevice = async (req, res) => {
         });
         if (!device) return res.status(404).json({ msg: "Alat tidak ditemukan" });
 
-        const { nama, jenis, lokasi, status, macAddress } = req.body;
+        const { macAddress } = req.body;
+        // const { nama, jenis, lokasi, status, macAddress } = req.body;
         
         if (macAddress && macAddress !== device.macAddress) {
             const existingMac = await Devices.findOne({ where: { macAddress } });
-            if (existingMac) {
+            if (existingMac&& existingMac.id !== device.id) {
                 return res.status(409).json({ msg: "MAC Address ini sudah digunakan." });
             }
         }
         
-        await device.update({ 
-            nama, jenis, lokasi, 
-            status: macAddress ? 'active' : device.status,
-            macAddress: macAddress || device.macAddress
-        });
+        // await device.update({ 
+        //     nama, jenis, lokasi, 
+        //     status: macAddress ? 'active' : device.status,
+        //     macAddress: macAddress || device.macAddress
+        // });
+        await device.update(req.body);
 
         // TIDAK ADA LAGI PANGGILAN subscribeToDeviceStatus
 

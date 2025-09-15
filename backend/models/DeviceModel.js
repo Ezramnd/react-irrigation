@@ -22,7 +22,7 @@ const Devices = db.define('devices', {
         }
     },
     jenis: {
-        type: DataTypes.STRING,
+        type: DataTypes.ENUM('Smart Irrigation', 'Climate', "Dosing"),
         allowNull: false,
         validate: {
             notEmpty: true

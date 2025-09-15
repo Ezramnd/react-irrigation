@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import io from 'socket.io-client';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import api from '../api';
 import MainLayout from '../components/MainLayout';
 import QrScanner from '../components/QrScanner';
 
+const socket = io('http://localhost:5000');
 // ... (Komponen AlatCard, FormTambahAlat, ModalEditAlat, dll. tetap sama) ...
 // --- Komponen Kartu Alat ---
 const AlatCard = ({ alat, onClick }) => { 
@@ -36,8 +38,9 @@ const AlatCard = ({ alat, onClick }) => {
 
 // --- Komponen Form Tambah Alat ---
 const FormTambahAlat = ({ onClose, onTambahAlat }) => {
+    const jenisOptions = ['Smart Irrigation', 'Climate', 'Dosing'];
     const [namaAlat, setNamaAlat] = useState('');
-    const [jenisAlat, setJenisAlat] = useState('');
+    const [jenisAlat, setJenisAlat] = useState(jenisOptions[0]); 
     const [lokasiAlat, setLokasiAlat] = useState('');
     const [status, setStatus] = useState('active');
     const handleSubmit = (e) => { e.preventDefault(); if (!namaAlat.trim() || !jenisAlat.trim() || !lokasiAlat.trim()) { toast.error('Semua field wajib diisi!'); return; } onTambahAlat({ nama: namaAlat, jenis: jenisAlat, lokasi: lokasiAlat, status: status }); toast.success('Alat baru berhasil ditambahkan!'); onClose(); };
@@ -50,7 +53,7 @@ const FormTambahAlat = ({ onClose, onTambahAlat }) => {
                 <form onSubmit={handleSubmit} className="space-y-6">
                     {/* WARNA DIUBAH */}
                     <div><label className="block text-sm font-semibold text-gray-700 mb-1">Nama Alat</label><input required type="text" value={namaAlat} onChange={(e) => setNamaAlat(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Masukkan nama alat" /></div>
-                    <div><label className="block text-sm font-semibold text-gray-700 mb-1">Jenis Alat</label><input required type="text" value={jenisAlat} onChange={(e) => setJenisAlat(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Contoh: Smart Irrigation" /></div>
+                     <div className="relative"><label className="block text-sm font-semibold text-gray-700 mb-1">Jenis Alat</label><select value={jenisAlat} onChange={(e) => setJenisAlat(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none pr-8">{jenisOptions.map(option => (<option key={option} value={option}>{option}</option> ))}</select><div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pt-6 px-4 text-gray-700"><svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg></div></div>
                     <div><label className="block text-sm font-semibold text-gray-700 mb-1">Lokasi Alat</label><input required type="text" value={lokasiAlat} onChange={(e) => setLokasiAlat(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Contoh: Sukawening, Dramaga" /></div>
                     <div className="relative"><label className="block text-sm font-semibold text-gray-700 mb-1">Status Alat</label><select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none pr-8"><option value="active">Aktif</option><option value="inactive">Tidak Aktif</option><option value="maintenance">Perawatan</option></select><div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pt-6 px-4 text-gray-700"><svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg></div></div>
                     <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 mt-8"><motion.button type="button" onClick={onClose} className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-semibold shadow-md">Batal</motion.button><motion.button type="submit" className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 font-semibold shadow-md">Simpan Alat</motion.button></div>
@@ -61,6 +64,7 @@ const FormTambahAlat = ({ onClose, onTambahAlat }) => {
 };
 
 const ModalEditAlat = ({ alat, onClose, onUpdate, onDelete }) => {
+    const jenisOptions = ['Smart Irrigation', 'Climate', 'Dosing']
     const [formData, setFormData] = useState(alat);
     // [BARU] State untuk mengontrol visibilitas QR Scanner
     const [isScannerOpen, setIsScannerOpen] = useState(false); 
@@ -106,7 +110,7 @@ const ModalEditAlat = ({ alat, onClose, onUpdate, onDelete }) => {
                     <form onSubmit={handleUpdate} className="space-y-6">
                         {/* ... (Input form lainnya tetap sama) ... */}
                         <div><label className="block text-sm font-semibold text-gray-700 mb-1">Nama Alat</label><input required type="text" name="nama" value={formData.nama} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500"/></div>
-                        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Jenis Alat</label><input required type="text" name="jenis" value={formData.jenis} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500"/></div>
+                        <div className="relative"><label className="block text-sm font-semibold text-gray-700 mb-1">Jenis Alat</label><select name="jenis" value={formData.jenis} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none pr-8">{jenisOptions.map(option => (<option key={option} value={option}>{option}</option>))}</select><div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pt-6 px-4 text-gray-700"><svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg></div></div>
                         <div><label className="block text-sm font-semibold text-gray-700 mb-1">Lokasi Alat</label><input required type="text" name="lokasi" value={formData.lokasi} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500"/></div>
                         <div className="relative"><label className="block text-sm font-semibold text-gray-700 mb-1">Status Alat</label><select name="status" value={formData.status} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none pr-8"><option value="active">Aktif</option><option value="inactive">Tidak Aktif</option><option value="maintenance">Perawatan</option></select><div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pt-6 px-4 text-gray-700"><svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg></div></div>
                         
@@ -148,6 +152,15 @@ const ModalEditAlat = ({ alat, onClose, onUpdate, onDelete }) => {
                         </div>
                         {/* ----------------------------------------------------------------- */}
 
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                Nama Jaringan (SSID)
+                            </label>
+                            <p className="w-full p-3 border border-gray-200 rounded-xl bg-gray-200 text-gray-500">
+                                {/* Tampilkan SSID jika ada, jika tidak, tampilkan placeholder */}
+                                {alat.ssid || 'Belum diatur'}
+                            </p>
+                        </div>
                         <div className="flex justify-between items-center pt-6 border-t border-gray-200 mt-8">
                             <motion.button type="button" onClick={handleDelete} className="px-6 py-3 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 font-semibold shadow-sm">Hapus Alat</motion.button>
                             <div className="space-x-3"><motion.button type="button" onClick={onClose} className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-semibold shadow-md">Batal</motion.button><motion.button type="submit" className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 font-semibold shadow-md">Simpan Perubahan</motion.button></div>
@@ -355,7 +368,23 @@ useEffect(() => {
     };
 
     fetchAlat();
-}, []);
+
+    // 2. Siapkan listener untuk pembaruan real-time dari server
+    const handleDeviceUpdate = () => {
+        console.log("Menerima sinyal pembaruan dari server, memuat ulang data alat...");
+        // Panggil kembali fungsi fetchAlat untuk mendapatkan data terbaru dari database
+        fetchAlat();
+    };
+
+    // Pasang listener-nya
+    socket.on('device-update', handleDeviceUpdate);
+
+    // 3. Cleanup function: Hapus listener saat komponen tidak lagi ditampilkan
+    // Ini penting untuk mencegah memory leak
+    return () => {
+      socket.off('device-update', handleDeviceUpdate);
+    };
+}, []); 
 
   // Ganti fungsi handleTambahAlat Anda dengan ini
   const handleTambahAlat = async (alatBaru) => {

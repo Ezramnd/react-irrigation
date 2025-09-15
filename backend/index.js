@@ -12,6 +12,7 @@ import Users from "./models/UserModel.js";
 import Devices from "./models/DeviceModel.js";
 import Schedules from "./models/ScheduleModel.js";
 import { setMqttClient, subscribeToDeviceStatus } from './mqttNotifier.js';
+import { initializeRealtimeManager } from './realtimeManager.js';
 
 // --- Konfigurasi ---
 const MQTT_BROKER_URL = 'mqtt://localhost';
@@ -21,6 +22,14 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
+
+// --- PERUBAHAN: Setup Socket.IO ---
+const io = new Server(server, {
+    cors: {
+        origin: FRONTEND_URL,
+        methods: ["GET", "POST"]
+    }
+});
 
 // --- Relasi Model ---
 Users.hasMany(Devices, { foreignKey: 'userId' });
@@ -44,6 +53,9 @@ app.use(router);
 // --- LOGIKA MQTT (Hanya untuk Notifikasi Jadwal) ---
 const mqttClient = mqtt.connect(MQTT_BROKER_URL);
 setMqttClient(mqttClient); // Hubungkan ke notifier
+
+// --- PERUBAHAN: Jalankan Manajer Real-time ---
+initializeRealtimeManager(io, mqttClient);
 
 mqttClient.on('connect', () => {
     console.log('✅ Terhubung ke MQTT Broker');

@@ -22,7 +22,7 @@ const Devices = db.define('devices', {
         }
     },
     jenis: {
-        type: DataTypes.STRING,
+        type: DataTypes.ENUM('Smart Irrigation', 'Climate', "Dosing"),
         allowNull: false,
         validate: {
             notEmpty: true
@@ -55,7 +55,11 @@ const Devices = db.define('devices', {
         validate: {
             notEmpty: true
         }
-    }
+    },
+    ssid: {
+        type: DataTypes.STRING,
+        allowNull: true // SSID juga bisa null
+    },
 }, {
     freezeTableName: true
 });

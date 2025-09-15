@@ -87,7 +87,7 @@ const MonitoringPage = () => {
                                         <th scope="col" className="px-6 py-3">Nama Alat</th>
                                         <th scope="col" className="px-6 py-3">Lokasi</th>
                                         <th scope="col" className="px-6 py-3">Status</th>
-                                        <th scope="col" className="px-6 py-3">Alamat IP</th>
+                                        <th scope="col" className="px-6 py-3">SSID WiFi</th>
                                         <th scope="col" className="px-6 py-3">MAC Address</th>
                                     </tr>
                                 </thead>
@@ -102,7 +102,7 @@ const MonitoringPage = () => {
                                                 <td className="px-6 py-4 font-medium text-gray-900">{alat.nama}</td>
                                                 <td className="px-6 py-4">{alat.lokasi}</td>
                                                 <td className="px-6 py-4"><StatusBadge status={alat.status} /></td>
-                                                <td className="px-6 py-4 font-mono">{alat.details?.ipAddress || 'N/A'}</td>
+                                                <td className="px-6 py-4 font-mono">{alat.ssid  || 'N/A'}</td>
                                                 <td className="px-6 py-4 font-mono">{alat.macAddress || 'Belum Diklaim'}</td>
                                             </tr>
                                         ))

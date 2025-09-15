@@ -177,7 +177,7 @@ const LoginPage = () => {
                                 />
                                 Ingat saya
                             </label>
-                            <a href="#" className="text-green-600 hover:underline font-medium">Lupa Kata Sandi?</a>
+                            <a href=" " className="text-green-600 hover:underline font-medium">Lupa Kata Sandi?</a>
                         </motion.div>
 
                         <motion.div variants={itemVariants}>

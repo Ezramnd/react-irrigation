@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import io from 'socket.io-client';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 import api from '../api';
 import MainLayout from '../components/MainLayout';
 
+
+const socket = io('http://localhost:5000'); 
 // ... (Komponen AlatCard, FormTambahAlat, ModalEditAlat, dll. tetap sama) ...
 // --- Komponen Kartu Alat ---
 const AlatCard = ({ alat, onClick }) => { 
@@ -118,6 +121,16 @@ const ModalEditAlat = ({ alat, onClose, onUpdate, onDelete }) => {
                         )}
                     </div>
                     {/* ------------------------------------ */}
+
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                            Nama Jaringan (SSID)
+                        </label>
+                        <p className="w-full p-3 border border-gray-200 rounded-xl bg-gray-200 text-gray-500">
+                            {/* Tampilkan SSID jika ada, jika tidak, tampilkan placeholder */}
+                            {alat.ssid || 'Belum diatur'}
+                        </p>
+                    </div>
 
                     <div className="flex justify-between items-center pt-6 border-t border-gray-200 mt-8">
                         <motion.button type="button" onClick={handleDelete} className="px-6 py-3 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 font-semibold shadow-sm">Hapus Alat</motion.button>
@@ -303,7 +316,10 @@ const AlatPage = () => {
 
   // Ganti fungsi useEffect Anda dengan ini
 useEffect(() => {
+    // Fungsi untuk mengambil data dari API
     const fetchAlat = async () => {
+        // Atur loading ke true di awal jika diperlukan (opsional)
+        // setIsLoading(true); 
         try {
             const response = await api.get('/alat');
             setDaftarAlat(response.data);
@@ -315,8 +331,25 @@ useEffect(() => {
         }
     };
 
+    // 1. Panggil fetchAlat() sekali saat komponen pertama kali dimuat
     fetchAlat();
-}, []);
+
+    // 2. Siapkan listener untuk pembaruan real-time dari server
+    const handleDeviceUpdate = () => {
+        console.log("Menerima sinyal pembaruan dari server, memuat ulang data alat...");
+        // Panggil kembali fungsi fetchAlat untuk mendapatkan data terbaru dari database
+        fetchAlat();
+    };
+
+    // Pasang listener-nya
+    socket.on('device-update', handleDeviceUpdate);
+
+    // 3. Cleanup function: Hapus listener saat komponen tidak lagi ditampilkan
+    // Ini penting untuk mencegah memory leak
+    return () => {
+      socket.off('device-update', handleDeviceUpdate);
+    };
+}, []); 
 
   // Ganti fungsi handleTambahAlat Anda dengan ini
   const handleTambahAlat = async (alatBaru) => {

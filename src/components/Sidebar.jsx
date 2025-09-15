@@ -33,7 +33,7 @@ const menuItems = [
   { name: 'Dashboard', path: '/dashboard', icon: <DashboardIcon /> },
   { name: 'Alat', path: '/alat', icon: <AlatIcon /> },
   // 2. Ikon Esp diperbarui di sini
-  { name: 'Esp', path: '/esp', icon: <EspIcon /> },
+  { name: 'Table', path: '/table', icon: <EspIcon /> },
 ];
 
 const Sidebar = ({ isOpen }) => {

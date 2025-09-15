@@ -4,7 +4,7 @@ import { verifyToken, adminOnly } from "../middleware/AuthUser.js";
 import { refreshToken } from "../controllers/RefreshToken.js";
 import { getDevices, createDevice, updateDevice, deleteDevice } from "../controllers/DeviceController.js";
 import Devices from "../models/DeviceModel.js";
-import { getDeviceSchedules, createScheduleForDevice, deleteSchedule, updateSchedule } from "../controllers/ScheduleController.js";
+import { getDeviceSchedules, createScheduleForDevice, deleteSchedule, updateSchedule, getSchedules} from "../controllers/ScheduleController.js";
 
 
 const router = express.Router();
@@ -42,6 +42,7 @@ router.post('/alat/:deviceId/jadwal', verifyToken, createScheduleForDevice);
 // Menghapus jadwal (jadwal akan terhapus dari semua alat yang menggunakannya)
 router.delete('/jadwal/:scheduleId', verifyToken, deleteSchedule);
 router.patch('/jadwal/:scheduleId', verifyToken, updateSchedule);
+router.get('/jadwal', verifyToken, getSchedules);
 
 
 export default router;

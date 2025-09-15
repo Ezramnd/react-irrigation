@@ -7,6 +7,22 @@ export const setMqttClient = (client) => {
     mqttClient = client;
 };
 
+// --- TAMBAHKAN FUNGSI BARU INI ---
+export const subscribeToDeviceStatus = (macAddress) => {
+    if (mqttClient && mqttClient.connected && macAddress) {
+        const macTopic = macAddress.replace(/:/g, '-');
+        const statusTopic = `esp32/status/${macTopic}`;
+        
+        mqttClient.subscribe(statusTopic, (err) => {
+            if (!err) {
+                console.log(`✅ Langsung subscribe ke topik status baru: ${statusTopic}`);
+            } else {
+                console.error(`❌ Gagal subscribe ke ${statusTopic}:`, err);
+            }
+        });
+    }
+};
+
 // Fungsi ini akan kita panggil dari controller
 export const publishScheduleUpdate = (topic, payload) => {
     if (mqttClient && mqttClient.connected) {

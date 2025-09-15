@@ -11,6 +11,25 @@ const createTopicFromMac = (macAddress) => {
     return `esp32/alat/${topicMac}/jadwal/set`;
 }
 
+// --- TAMBAHKAN FUNGSI BARU INI ---
+export const getSchedules = async (req, res) => {
+    try {
+        let options = {
+            order: [['id', 'DESC']] // Urutkan dari yang terbaru
+        };
+
+        // Jika bukan admin, filter berdasarkan userId
+        if (req.role !== "admin") {
+            options.where = { userId: req.userId };
+        }
+
+        const schedules = await Schedules.findAll(options);
+        res.json(schedules);
+    } catch (error) {
+        res.status(500).json({ msg: error.message });
+    }
+};
+
 // Mengambil semua jadwal yang terkait dengan sebuah alat
 export const getDeviceSchedules = async (req, res) => {
     try {

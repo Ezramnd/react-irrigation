@@ -22,7 +22,7 @@ const Devices = db.define('devices', {
         }
     },
     jenis: {
-        type: DataTypes.STRING,
+        type: DataTypes.ENUM('Smart Irrigation', 'Climate', "Dosing"),
         allowNull: false,
         validate: {
             notEmpty: true
@@ -45,13 +45,21 @@ const Devices = db.define('devices', {
         allowNull: true, // Boleh null awalnya, sampai perangkat mendaftar
         unique: true
     },
+    //  details: {
+    //     type: DataTypes.JSON,
+    //     allowNull: true
+    // },
     userId: { // Ini adalah Foreign Key
         type: DataTypes.INTEGER,
         allowNull: false,
         validate: {
             notEmpty: true
         }
-    }
+    },
+    ssid: {
+        type: DataTypes.STRING,
+        allowNull: true // SSID juga bisa null
+    },
 }, {
     freezeTableName: true
 });

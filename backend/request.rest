@@ -1,15 +1,17 @@
 GET http://localhost:5000/users
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZW1haWwiOiJqb2huQGV4YW1wbGUuY29tIiwiaWF0IjoxNzU2NzM4OTEzLCJleHAiOjE3NTY3Mzg5MzN9.17XSdoUVwLEzweBuYY7_17aUtIUpVoM3263_dIMKQyk
 
-### Register User
+### Register User Baru (Sebagai Admin)
 POST http://localhost:5000/users
 Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwibmFtZSI6IkFkbWluIiwiZW1haWwiOiJhZG1pbkBjb250b2guY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzU3NTQxMDU5LCJleHAiOjE3NTc1NDQ2NTl9.abcdef123456
 
 {
-    "name": "Ezra",
-    "email": "ezra@example.com",
-    "password": "12345678",
-    "confPassword": "12345678"
+    "name": "Test",
+    "email": "test@example.com",
+    "password": "123",
+    "confPassword": "123",
+    "role": "user" 
 }
 
 ### Login User
@@ -17,8 +19,8 @@ POST http://localhost:5000/login
 Content-Type: application/json
 
 {
-    "email": "ezra@example.com",
-    "password": "12345678"
+    "email": "admin@example.com",
+    "password": "123"
 }
 
 

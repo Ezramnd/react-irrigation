@@ -36,7 +36,7 @@ api.interceptors.response.use(
             } catch (refreshError) {
                 console.error("Sesi berakhir.", refreshError);
                 localStorage.removeItem('token');
-                window.location.href = '/login';
+                window.location.href = '/';
                 return Promise.reject(refreshError);
             }
         }

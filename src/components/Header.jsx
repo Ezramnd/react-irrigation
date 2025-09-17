@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'; // BARU: import useEffect
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { FaUser } from 'react-icons/fa';
 import api from '../api';
 
 const Header = ({ onMenuClick }) => {
@@ -120,11 +121,7 @@ const Header = ({ onMenuClick }) => {
               <p className="text-sm font-medium text-gray-800">Hi, {userName}</p>
             </div>
             
-            <img 
-              src="https://randomuser.me/api/portraits/men/1.jpg" 
-              alt="Profile" 
-              className="w-10 h-10 rounded-full border-2 border-gray-200 shadow-sm" 
-            />
+            <FaUser className="w-10 h-10 rounded-full border-2 border-gray-200 shadow-sm text-gray-600 bg-gray-100 p-2" />
             {/* BARU: Ikon panah dropdown */}
             <motion.svg 
                 animate={{ rotate: isProfileOpen ? 180 : 0 }}

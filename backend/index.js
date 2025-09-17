@@ -3,6 +3,7 @@ import http from 'http';
 import { Server } from 'socket.io';
 import mqtt from 'mqtt';
 import dotenv from "dotenv";
+dotenv.config();
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import { Op } from 'sequelize'; // <-- Pastikan ini diimpor
@@ -18,7 +19,6 @@ import { initializeRealtimeManager } from './realtimeManager.js';
 const MQTT_BROKER_URL = 'mqtt://localhost';
 const FRONTEND_URL = "http://localhost:5173";
 const PORT = 5000;
-dotenv.config();
 
 const app = express();
 const server = http.createServer(app);

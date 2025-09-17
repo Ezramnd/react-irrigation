@@ -8,6 +8,9 @@ import PublicRoute from './components/PublicRoute';
 import UsersPage from './pages/UsersPage';
 import AdminRoute from './components/AdminRoute';
 import MonitoringPage from './pages/MonitoringPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+
 
 function App() {
   return (
@@ -30,6 +33,8 @@ function App() {
           <Route path="/users" element={<UsersPage />} />
           {/* Tambahkan rute lain khusus admin di sini */}
         </Route>
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
       </Routes>
     </BrowserRouter>
   );

@@ -20,7 +20,15 @@ const Users = db.define('users' ,{
         type: DataTypes.ENUM('user', 'admin'), 
         defaultValue: "user",
         allowNull: false
-        }
+        },
+      resetPasswordToken: {
+      type: DataTypes.STRING,
+      allowNull: true
+      },
+      resetPasswordExpires: {
+            type: DataTypes.DATE,
+            allowNull: true
+      }
 
 },{
       freezeTableName:true

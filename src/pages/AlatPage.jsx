@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
+import { HiOutlineQrcode } from 'react-icons/hi';
 import api from '../api';
 import MainLayout from '../components/MainLayout';
 import QrScanner from '../components/QrScanner';
@@ -42,32 +43,87 @@ const FormTambahAlat = ({ onClose, onTambahAlat }) => {
     const [namaAlat, setNamaAlat] = useState('');
     const [jenisAlat, setJenisAlat] = useState(jenisOptions[0]); 
     const [lokasiAlat, setLokasiAlat] = useState('');
+    const [macAddress, setMacAddress] = useState('');
     const [status, setStatus] = useState('active');
-    const handleSubmit = (e) => { e.preventDefault(); if (!namaAlat.trim() || !jenisAlat.trim() || !lokasiAlat.trim()) { toast.error('Semua field wajib diisi!'); return; } onTambahAlat({ nama: namaAlat, jenis: jenisAlat, lokasi: lokasiAlat, status: status }); toast.success('Alat baru berhasil ditambahkan!'); onClose(); };
+    const [isScannerOpen, setIsScannerOpen] = useState(false);
+    
+    const handleSubmit = (e) => { 
+        e.preventDefault(); 
+        if (!namaAlat.trim() || !jenisAlat.trim() || !lokasiAlat.trim()) { 
+            toast.error('Semua field wajib diisi!'); 
+            return; 
+        } 
+        onTambahAlat({ nama: namaAlat, jenis: jenisAlat, lokasi: lokasiAlat, macAddress: macAddress.trim() || null, status: status }); 
+        toast.success('Alat baru berhasil ditambahkan!'); 
+        onClose(); 
+    };
+
+    // Fungsi untuk menangani hasil scan QR Code
+    const handleScanSuccess = (scannedData) => {
+        setMacAddress(scannedData);
+        setIsScannerOpen(false);
+        toast.success('MAC Address berhasil dipindai!');
+    };
     const backdropVariants = { hidden: { opacity: 0 }, visible: { opacity: 1 } };
     const modalVariants = { hidden: { y: "-50px", opacity: 0 }, visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 300, damping: 30 } }, exit: { opacity: 0, scale: 0.9, transition: { duration: 0.15 } } };
     return (
-        <motion.div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" variants={backdropVariants} initial="hidden" animate="visible" exit="hidden" onClick={onClose}>
-            <motion.div className="bg-gradient-to-br from-white to-gray-50 p-8 rounded-3xl shadow-xl border border-gray-100 w-full max-w-lg relative" variants={modalVariants} initial="hidden" animate="visible" exit="exit" onClick={(e) => e.stopPropagation()}>
-                <div className="flex justify-between items-center mb-6 border-b pb-4 border-gray-200"><h2 className="text-3xl font-extrabold text-gray-800">Tambahkan Alat Baru</h2><button onClick={onClose} className="p-2 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-all duration-200 focus:outline-none"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button></div>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* WARNA DIUBAH */}
-                    <div><label className="block text-sm font-semibold text-gray-700 mb-1">Nama Alat</label><input required type="text" value={namaAlat} onChange={(e) => setNamaAlat(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Masukkan nama alat" /></div>
-                     <div className="relative"><label className="block text-sm font-semibold text-gray-700 mb-1">Jenis Alat</label><select value={jenisAlat} onChange={(e) => setJenisAlat(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none pr-8">{jenisOptions.map(option => (<option key={option} value={option}>{option}</option> ))}</select><div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pt-6 px-4 text-gray-700"><svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg></div></div>
-                    <div><label className="block text-sm font-semibold text-gray-700 mb-1">Lokasi Alat</label><input required type="text" value={lokasiAlat} onChange={(e) => setLokasiAlat(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Contoh: Sukawening, Dramaga" /></div>
-                    <div className="relative"><label className="block text-sm font-semibold text-gray-700 mb-1">Status Alat</label><select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none pr-8"><option value="active">Aktif</option><option value="inactive">Tidak Aktif</option><option value="maintenance">Perawatan</option></select><div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pt-6 px-4 text-gray-700"><svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg></div></div>
-                    <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 mt-8"><motion.button type="button" onClick={onClose} className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-semibold shadow-md">Batal</motion.button><motion.button type="submit" className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 font-semibold shadow-md">Simpan Alat</motion.button></div>
-                </form>
+        <>
+            <motion.div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" variants={backdropVariants} initial="hidden" animate="visible" exit="hidden" onClick={onClose}>
+                <motion.div className="bg-gradient-to-br from-white to-gray-50 p-8 rounded-3xl shadow-xl border border-gray-100 w-full max-w-lg relative" variants={modalVariants} initial="hidden" animate="visible" exit="exit" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex justify-between items-center mb-6 border-b pb-4 border-gray-200"><h2 className="text-3xl font-extrabold text-gray-800">Tambahkan Alat Baru</h2><button onClick={onClose} className="p-2 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-all duration-200 focus:outline-none"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button></div>
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        {/* WARNA DIUBAH */}
+                        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Nama Alat</label><input required type="text" value={namaAlat} onChange={(e) => setNamaAlat(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Masukkan nama alat" /></div>
+                         <div className="relative"><label className="block text-sm font-semibold text-gray-700 mb-1">Jenis Alat</label><select value={jenisAlat} onChange={(e) => setJenisAlat(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none pr-8">{jenisOptions.map(option => (<option key={option} value={option}>{option}</option> ))}</select><div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pt-6 px-4 text-gray-700"><svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg></div></div>
+                        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Lokasi Alat</label><input required type="text" value={lokasiAlat} onChange={(e) => setLokasiAlat(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Contoh: Sukawening, Dramaga" /></div>
+                        
+                        {/* MAC Address field with QR scanner */}
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                MAC Address Perangkat
+                            </label>
+                            <div className="relative flex items-center">
+                                <input
+                                    type="text"
+                                    value={macAddress}
+                                    onChange={(e) => setMacAddress(e.target.value)}
+                                    className="w-full p-3 pr-12 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 font-mono"
+                                    placeholder="Contoh: AA:BB:CC:11:22:33"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setIsScannerOpen(true)}
+                                    className="absolute right-2 p-2 rounded-full bg-gray-200 hover:bg-green-200 text-gray-600 hover:text-green-700 transition-all duration-200"
+                                    aria-label="Scan QR Code"
+                                    title="Pindai QR Code"
+                                >
+                                    <HiOutlineQrcode className="h-5 w-5" />
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div className="relative"><label className="block text-sm font-semibold text-gray-700 mb-1">Status Alat</label><select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none pr-8"><option value="active">Aktif</option><option value="inactive">Tidak Aktif</option><option value="maintenance">Perawatan</option></select><div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pt-6 px-4 text-gray-700"><svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg></div></div>
+                        <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 mt-8"><motion.button type="button" onClick={onClose} className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-semibold shadow-md">Batal</motion.button><motion.button type="submit" className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 font-semibold shadow-md">Simpan Alat</motion.button></div>
+                    </form>
+                </motion.div>
             </motion.div>
-        </motion.div>
+
+            {/* QR Scanner */}
+            <AnimatePresence>
+                {isScannerOpen && (
+                    <QrScanner
+                        onScan={handleScanSuccess}
+                        onClose={() => setIsScannerOpen(false)}
+                    />
+                )}
+            </AnimatePresence>
+        </>
     );
 };
 
 const ModalEditAlat = ({ alat, onClose, onUpdate, onDelete }) => {
     const jenisOptions = ['Smart Irrigation', 'Climate', 'Dosing']
     const [formData, setFormData] = useState(alat);
-    // [BARU] State untuk mengontrol visibilitas QR Scanner
-    const [isScannerOpen, setIsScannerOpen] = useState(false); 
     
     useEffect(() => { setFormData(alat); }, [alat]);
     
@@ -91,94 +147,46 @@ const ModalEditAlat = ({ alat, onClose, onUpdate, onDelete }) => {
         onClose();
     };
 
-    // [BARU] Fungsi untuk menangani hasil scan QR Code
-    const handleScanSuccess = (scannedData) => {
-        setFormData(prev => ({ ...prev, macAddress: scannedData })); // Update state form
-        setIsScannerOpen(false); // Tutup scanner
-        toast.success('MAC Address berhasil dipindai!');
-    };
-
     const backdropVariants = { hidden: { opacity: 0 }, visible: { opacity: 1 } };
     const modalVariants = { hidden: { y: "-50px", opacity: 0 }, visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 300, damping: 30 } }, exit: { opacity: 0, scale: 0.9, transition: { duration: 0.15 } } };
     
     return (
-        // [MODIFIKASI] Gunakan React Fragment agar bisa merender QrScanner sebagai sibling
-        <>
-            <motion.div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] p-4" variants={backdropVariants} initial="hidden" animate="visible" exit="exit" onClick={onClose}>
-                <motion.div className="bg-gradient-to-br from-white to-gray-50 p-8 rounded-3xl shadow-xl border border-gray-100 w-full max-w-lg relative" variants={modalVariants} initial="hidden" animate="visible" exit="exit" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex justify-between items-center mb-6 border-b pb-4 border-gray-200"><h2 className="text-3xl font-extrabold text-gray-800">Edit Alat</h2><button onClick={onClose} className="p-2 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-all duration-200 focus:outline-none"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button></div>
-                    <form onSubmit={handleUpdate} className="space-y-6">
-                        {/* ... (Input form lainnya tetap sama) ... */}
-                        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Nama Alat</label><input required type="text" name="nama" value={formData.nama} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500"/></div>
-                        <div className="relative"><label className="block text-sm font-semibold text-gray-700 mb-1">Jenis Alat</label><select name="jenis" value={formData.jenis} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none pr-8">{jenisOptions.map(option => (<option key={option} value={option}>{option}</option>))}</select><div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pt-6 px-4 text-gray-700"><svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg></div></div>
-                        <div><label className="block text-sm font-semibold text-gray-700 mb-1">Lokasi Alat</label><input required type="text" name="lokasi" value={formData.lokasi} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500"/></div>
-                        <div className="relative"><label className="block text-sm font-semibold text-gray-700 mb-1">Status Alat</label><select name="status" value={formData.status} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none pr-8"><option value="active">Aktif</option><option value="inactive">Tidak Aktif</option><option value="maintenance">Perawatan</option></select><div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pt-6 px-4 text-gray-700"><svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg></div></div>
-                        
-                        {/* --- [MODIFIKASI] Blok untuk MAC ADDRESS dengan tombol QR --- */}
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-1">
-                                MAC Address Perangkat
-                            </label>
-                            {alat.macAddress ? (
-                                <p className="w-full p-3 border border-gray-200 rounded-xl bg-gray-200 text-gray-500 font-mono">
-                                    {alat.macAddress}
-                                </p>
-                            ) : (
-                                <div className="relative flex items-center">
-                                    <input
-                                        type="text"
-                                        name="macAddress"
-                                        value={formData.macAddress || ''}
-                                        onChange={handleChange}
-                                        className="w-full p-3 pr-12 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 font-mono"
-                                        placeholder="Contoh: AA:BB:CC:11:22:33"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsScannerOpen(true)}
-                                        className="absolute right-2 p-2 rounded-full bg-gray-200 hover:bg-green-200 text-gray-600 hover:text-green-700 transition-all duration-200"
-                                        aria-label="Scan QR Code"
-                                        title="Pindai QR Code"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                            <path d="M3 4a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1v-2zM9 4a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/>
-                                            <path d="M15 3a1 1 0 00-1 1v2a1 1 0 001 1h2a1 1 0 001-1V4a1 1 0 00-1-1h-2zM3 16a1 1 0 00-1 1v2a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 00-1-1H3zM15 9a1 1 0 00-1 1v2a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 00-1-1h-2z"/>
-                                            <path fillRule="evenodd" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4zm2 1a1 1 0 100 2h2a1 1 0 100-2h-2z" clipRule="evenodd"/>
-                                            <path d="M6 15a1 1 0 11-2 0 1 1 0 012 0zM9 15a1 1 0 11-2 0 1 1 0 012 0z"/>
-                                        </svg>
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                        {/* ----------------------------------------------------------------- */}
+        <motion.div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] p-4" variants={backdropVariants} initial="hidden" animate="visible" exit="exit" onClick={onClose}>
+            <motion.div className="bg-gradient-to-br from-white to-gray-50 p-8 rounded-3xl shadow-xl border border-gray-100 w-full max-w-lg relative" variants={modalVariants} initial="hidden" animate="visible" exit="exit" onClick={(e) => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-6 border-b pb-4 border-gray-200"><h2 className="text-3xl font-extrabold text-gray-800">Edit Alat</h2><button onClick={onClose} className="p-2 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-all duration-200 focus:outline-none"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button></div>
+                <form onSubmit={handleUpdate} className="space-y-6">
+                    {/* ... (Input form lainnya tetap sama) ... */}
+                    <div><label className="block text-sm font-semibold text-gray-700 mb-1">Nama Alat</label><input required type="text" name="nama" value={formData.nama} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500"/></div>
+                    <div className="relative"><label className="block text-sm font-semibold text-gray-700 mb-1">Jenis Alat</label><select name="jenis" value={formData.jenis} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none pr-8">{jenisOptions.map(option => (<option key={option} value={option}>{option}</option>))}</select><div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pt-6 px-4 text-gray-700"><svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg></div></div>
+                    <div><label className="block text-sm font-semibold text-gray-700 mb-1">Lokasi Alat</label><input required type="text" name="lokasi" value={formData.lokasi} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500"/></div>
+                    <div className="relative"><label className="block text-sm font-semibold text-gray-700 mb-1">Status Alat</label><select name="status" value={formData.status} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none pr-8"><option value="active">Aktif</option><option value="inactive">Tidak Aktif</option><option value="maintenance">Perawatan</option></select><div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pt-6 px-4 text-gray-700"><svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg></div></div>
+                    
+                    {/* MAC Address - Read Only Display */}
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                            MAC Address Perangkat
+                        </label>
+                        <p className="w-full p-3 border border-gray-200 rounded-xl bg-gray-200 text-gray-500 font-mono">
+                            {alat.macAddress || 'Belum diatur'}
+                        </p>
+                    </div>
 
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-1">
-                                Nama Jaringan (SSID)
-                            </label>
-                            <p className="w-full p-3 border border-gray-200 rounded-xl bg-gray-200 text-gray-500">
-                                {/* Tampilkan SSID jika ada, jika tidak, tampilkan placeholder */}
-                                {alat.ssid || 'Belum diatur'}
-                            </p>
-                        </div>
-                        <div className="flex justify-between items-center pt-6 border-t border-gray-200 mt-8">
-                            <motion.button type="button" onClick={handleDelete} className="px-6 py-3 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 font-semibold shadow-sm">Hapus Alat</motion.button>
-                            <div className="space-x-3"><motion.button type="button" onClick={onClose} className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-semibold shadow-md">Batal</motion.button><motion.button type="submit" className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 font-semibold shadow-md">Simpan Perubahan</motion.button></div>
-                        </div>
-                    </form>
-                </motion.div>
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                            Nama Jaringan (SSID)
+                        </label>
+                        <p className="w-full p-3 border border-gray-200 rounded-xl bg-gray-200 text-gray-500">
+                            {/* Tampilkan SSID jika ada, jika tidak, tampilkan placeholder */}
+                            {alat.ssid || 'Belum diatur'}
+                        </p>
+                    </div>
+                    <div className="flex justify-between items-center pt-6 border-t border-gray-200 mt-8">
+                        <motion.button type="button" onClick={handleDelete} className="px-6 py-3 bg-red-100 text-red-600 rounded-xl hover:bg-red-200 font-semibold shadow-sm">Hapus Alat</motion.button>
+                        <div className="space-x-3"><motion.button type="button" onClick={onClose} className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-semibold shadow-md">Batal</motion.button><motion.button type="submit" className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 font-semibold shadow-md">Simpan Perubahan</motion.button></div>
+                    </div>
+                </form>
             </motion.div>
-
-            {/* [BARU] Render komponen QrScanner jika isScannerOpen adalah true */}
-            <AnimatePresence>
-                {isScannerOpen && (
-                    <QrScanner
-                        onScan={handleScanSuccess}
-                        onClose={() => setIsScannerOpen(false)}
-                    />
-                )}
-            </AnimatePresence>
-        </>
+        </motion.div>
     );
 };
 // --- Komponen Form untuk Tambah/Edit Jadwal ---

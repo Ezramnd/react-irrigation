@@ -1,50 +1,47 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
+import { FaThermometerHalf, FaTint, FaSun, FaToggleOn, FaDownload, FaChevronUp, FaChevronDown } from 'react-icons/fa';
 import RealtimeApexChart from "../components/RealtimeApexChart";
 import MainLayout from '../components/MainLayout';
 
 // --- Komponen Ikon Tren (untuk naik/turun) ---
 const TrendIcon = ({ trendType }) => {
   const isUp = trendType === 'up';
-  return (
-    <svg className={`w-4 h-4 ${isUp ? 'text-green-500' : 'text-red-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      {isUp ? (
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 15l7-7 7 7" />
-      ) : (
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7" />
-      )}
-    </svg>
+  return isUp ? (
+    <FaChevronUp className="w-4 h-4 text-green-500" />
+  ) : (
+    <FaChevronDown className="w-4 h-4 text-red-500" />
   );
 };
 
-// --- Komponen Kartu Statistik (Desain Baru) ---
+// --- Komponen Kartu Statistik (Desain Responsif) ---
 const StatCard = ({ icon, title, value, unit, isTextStatus = false }) => {
   return (
     <motion.div
-      className="bg-white rounded-2xl shadow-lg p-6 flex items-center justify-between transform transition-all duration-300 hover:-translate-y-1.5"
+      className="bg-white rounded-2xl shadow-lg p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between transform transition-all duration-300 hover:-translate-y-1.5"
       whileHover={{ scale: 1.03 }}
     >
-      <div>
-        <span className="text-gray-500 font-medium">{title}</span>
-        <div className="flex items-baseline space-x-2">
-          <h2 className={`font-extrabold text-gray-800 my-1 ${isTextStatus ? 'text-2xl' : 'text-4xl'}`}>{value}</h2>
-          {!isTextStatus && <span className="text-gray-400 font-medium">{unit}</span>}
+      <div className="flex-1 mb-3 sm:mb-0">
+        <span className="text-gray-500 font-medium text-sm sm:text-base">{title}</span>
+        <div className="flex items-baseline space-x-2 mt-1">
+          <h2 className={`font-extrabold text-gray-800 ${isTextStatus ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-4xl'}`}>{value}</h2>
+          {!isTextStatus && <span className="text-gray-400 font-medium text-sm sm:text-base">{unit}</span>}
         </div>
         {isTextStatus && (
-          <div className="flex items-center text-green-500">
+          <div className="flex items-center text-green-500 mt-1">
             <span className="inline-block h-3 w-3 bg-green-500 rounded-full mr-2"></span>
-            <span className="font-semibold">Berjalan Normal</span>
+            <span className="font-semibold text-sm sm:text-base">Berjalan Normal</span>
           </div>
         )}
       </div>
-      <div className="p-4 rounded-full bg-blue-50">
+      <div className="p-3 sm:p-4 rounded-full bg-blue-50 self-end sm:self-auto">
         {icon}
       </div>
     </motion.div>
   );
 };
 
-// --- Komponen Tabel Data Historis ---
+// --- Komponen Tabel Data Historis (Mobile-Responsive) ---
 const DataTable = () => {
   // Data dummy untuk log, diurutkan dari yang terbaru
   const logData = [
@@ -75,37 +72,74 @@ const DataTable = () => {
   };
 
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-lg">
-      <div className="flex justify-between items-center mb-4 border-b pb-4">
-        <h2 className="text-xl font-bold text-gray-800">Data Green House</h2>
-        <button onClick={handleDownloadCSV} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold text-sm flex items-center space-x-2">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+    <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-lg">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b pb-4 space-y-3 sm:space-y-0">
+        <h2 className="text-lg sm:text-xl font-bold text-gray-800">Data Green House</h2>
+        <button 
+          onClick={handleDownloadCSV} 
+          className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold text-sm flex items-center justify-center space-x-2"
+        >
+          <FaDownload className="h-4 w-4 sm:h-5 sm:w-5" />
           <span>Download CSV</span>
         </button>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left text-gray-500">
-          <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-            <tr>
-              <th scope="col" className="px-6 py-3">Tanggal & Jam</th>
-              <th scope="col" className="px-6 py-3">Suhu</th>
-              <th scope="col" className="px-6 py-3">Kelembaban</th>
-              <th scope="col" className="px-6 py-3">Cahaya (Lux)</th>
-              <th scope="col" className="px-6 py-3">Volume Irigasi</th>
-            </tr>
-          </thead>
-          <tbody>
-            {logData.map((row, index) => (
-              <tr key={index} className="bg-white border-b hover:bg-gray-50">
-                <td className="px-6 py-4 font-medium text-gray-900">{row.tanggal} <span className="text-gray-400">{row.jam}</span></td>
-                <td className="px-6 py-4">{row.suhu}°C</td>
-                <td className="px-6 py-4">{row.kelembaban}%</td>
-                <td className="px-6 py-4">{row.lux.toLocaleString('id-ID')}</td>
-                <td className="px-6 py-4">{row.volume} mL</td>
+      
+      {/* Mobile Card View */}
+      <div className="block md:hidden space-y-4">
+        {logData.map((row, index) => (
+          <div key={index} className="bg-gray-50 rounded-lg p-4 border">
+            <div className="flex justify-between items-center mb-2">
+              <span className="font-medium text-gray-900">{row.tanggal}</span>
+              <span className="text-gray-500 text-sm">{row.jam}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <span className="text-gray-500">Suhu:</span>
+                <span className="ml-1 font-medium">{row.suhu}°C</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Kelembaban:</span>
+                <span className="ml-1 font-medium">{row.kelembaban}%</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Cahaya:</span>
+                <span className="ml-1 font-medium">{row.lux.toLocaleString('id-ID')}</span>
+              </div>
+              <div>
+                <span className="text-gray-500">Volume:</span>
+                <span className="ml-1 font-medium">{row.volume} mL</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop Table View */}
+      <div className="hidden md:block">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left text-gray-500">
+            <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+              <tr>
+                <th scope="col" className="px-6 py-3">Tanggal & Jam</th>
+                <th scope="col" className="px-6 py-3">Suhu</th>
+                <th scope="col" className="px-6 py-3">Kelembaban</th>
+                <th scope="col" className="px-6 py-3">Cahaya (Lux)</th>
+                <th scope="col" className="px-6 py-3">Volume Irigasi</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {logData.map((row, index) => (
+                <tr key={index} className="bg-white border-b hover:bg-gray-50">
+                  <td className="px-6 py-4 font-medium text-gray-900">{row.tanggal} <span className="text-gray-400">{row.jam}</span></td>
+                  <td className="px-6 py-4">{row.suhu}°C</td>
+                  <td className="px-6 py-4">{row.kelembaban}%</td>
+                  <td className="px-6 py-4">{row.lux.toLocaleString('id-ID')}</td>
+                  <td className="px-6 py-4">{row.volume} mL</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -115,10 +149,10 @@ const DataTable = () => {
 const DashboardPage = () => {
 
   const statsData = [
-    { title: 'Suhu', value: '28.5', unit: '°C', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16V4a4 4 0 10-8 0v12a4 4 0 108 0zM13 16a2 2 0 11-4 0 2 2 0 014 0z" /></svg> },
-    { title: 'Kelembaban', value: '65', unit: '%', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 21a9 9 0 01-9-9c0-5.25 4.5-9.5 4.5-9.5s4.5 4.25 4.5 9.5a9 9 0 01-9 9z" /></svg> },
-    { title: 'Intensitas Cahaya', value: '55.000', unit: 'Lux', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m8.66-15.66l-.707.707M4.34 19.66l-.707.707M21 12h-1M4 12H3m15.66 8.66l-.707-.707M4.34 4.34l-.707-.707" /></svg> },
-    { title: 'Status Irigasi', value: 'Aktif', isTextStatus: true, icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h14M12 5l7 7-7 7" /></svg> },
+    { title: 'Suhu', value: '28.5', unit: '°C', icon: <FaThermometerHalf className="h-7 w-7 text-blue-600" /> },
+    { title: 'Kelembaban', value: '65', unit: '%', icon: <FaTint className="h-7 w-7 text-blue-600" /> },
+    { title: 'Intensitas Cahaya', value: '55.000', unit: 'Lux', icon: <FaSun className="h-7 w-7 text-blue-600" /> },
+    { title: 'Status Irigasi', value: 'Aktif', isTextStatus: true, icon: <FaToggleOn className="h-7 w-7 text-blue-600" /> },
   ];
  
   const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
@@ -126,12 +160,13 @@ const DashboardPage = () => {
 
   return (
     <MainLayout className="relative flex bg-gray-100 min-h-screen">  
-      {/* KODE YANG DIPERBAIKI ADA DI BARIS DI BAWAH INI */}
+      {/* Responsive Layout */}
       <div className="flex-1 flex flex-col">
-        <main className="flex-1 overflow-x-hidden overflow-y-auto p-6">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-6">
           <motion.div variants={containerVariants} initial="hidden" animate="visible">
            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-8">
+            {/* Responsive Grid for Stats Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-8">
               {statsData.map((stat, index) => (
                 <motion.div key={index} variants={itemVariants}>
                   <StatCard {...stat} />
@@ -139,13 +174,15 @@ const DashboardPage = () => {
               ))}
             </div>
 
-            <motion.div variants={itemVariants} className="mb-8">
-              <div className="bg-white p-6 rounded-2xl shadow-lg">
-                <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-4">Grafik Sensor Real-time</h2>
+            {/* Chart Section */}
+            <motion.div variants={itemVariants} className="mb-6 sm:mb-8">
+              <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-lg">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4 border-b pb-4">Grafik Sensor Real-time</h2>
                 <RealtimeApexChart />
               </div>
             </motion.div>
 
+            {/* Data Table Section */}
             <motion.div variants={itemVariants}>
               <DataTable />
             </motion.div>

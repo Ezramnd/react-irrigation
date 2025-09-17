@@ -70,7 +70,6 @@ const UsersPage = () => {
             <Toaster position="top-center" />
             <div className="p-8">
                 <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-3xl font-bold">Manajemen User</h1>
                     <button onClick={() => setIsRegisterOpen(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                         + Daftarkan User Baru
                     </button>

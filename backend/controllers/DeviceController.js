@@ -26,18 +26,34 @@ export const getDevices = async (req, res) => {
 // --- FUNGSI CREATE DEVICE (DIPERBARUI) ---
 // Sekarang hanya membuat "wadah" virtual untuk alat
 export const createDevice = async (req, res) => {
-    const { nama, jenis, lokasi } = req.body;
+    // 1. Ambil SEMUA field yang dibutuhkan, termasuk macAddress
+    const { nama, jenis, lokasi, macAddress } = req.body;
+
+    // 2. Validasi: pastikan macAddress dikirim oleh frontend
+    if (!macAddress) {
+        return res.status(400).json({ msg: "MAC Address wajib diisi." });
+    }
+
     try {
+        // 3. Cek apakah MAC Address sudah terdaftar untuk mencegah duplikat
+        const existingMac = await Devices.findOne({ where: { macAddress } });
+        if (existingMac) {
+            return res.status(409).json({ msg: "MAC Address ini sudah terdaftar." });
+        }
+
+        // 4. Buat device baru dengan menyertakan macAddress
         const newDevice = await Devices.create({
             nama,
             jenis,
             lokasi,
-            status: 'inactive', // Status awal, menunggu diklaim dengan MAC Address
+            macAddress, // <-- Tambahkan macAddress di sini
+            status: 'active', // Langsung aktif karena sudah dipasangkan
             userId: req.userId
         });
-        res.status(201).json({ msg: "Slot alat baru berhasil dibuat. Silakan klaim dengan MAC Address.", device: newDevice });
+
+        res.status(201).json({ msg: "Alat baru berhasil ditambahkan dan dipasangkan.", device: newDevice });
     } catch (error) {
-        res.status(400).json({ msg: error.message });
+        res.status(500).json({ msg: error.message });
     }
 }
 

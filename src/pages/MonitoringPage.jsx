@@ -73,10 +73,7 @@ const MonitoringPage = () => {
             <Toaster position="top-center" />
             <div className="p-6 md:p-8">
                 <motion.div variants={containerVariants} initial="hidden" animate="visible">
-                    <motion.h1 variants={itemVariants} className="text-3xl font-bold text-gray-800 mb-8">
-                        Monitoring & Jadwal
-                    </motion.h1>
-
+                   
                     {/* --- BAGIAN BARU: Tabel untuk Daftar Alat --- */}
                     <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl shadow-lg mb-8">
                         <h2 className="text-xl font-bold text-gray-800 mb-4 border-b pb-4">Monitoring Alat Terhubung</h2>

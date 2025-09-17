@@ -36,8 +36,11 @@ const Header = ({ onMenuClick }) => {
     case '/alat':
       pageTitle = 'Manajemen Alat';
       break;
-    case '/esp':
-      pageTitle = 'Manajemen ESP 32';
+    case '/monitoring':
+      pageTitle = 'Monitoring & Jadwal';
+      break;
+    case '/users':
+      pageTitle = 'Manajemen User';
       break;
     default:
       pageTitle = 'Dashboard';

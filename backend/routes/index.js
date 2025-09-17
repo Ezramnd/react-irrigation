@@ -5,7 +5,7 @@ import { refreshToken } from "../controllers/RefreshToken.js";
 import { getDevices, createDevice, updateDevice, deleteDevice } from "../controllers/DeviceController.js";
 import Devices from "../models/DeviceModel.js";
 import { getDeviceSchedules, createScheduleForDevice, deleteSchedule, updateSchedule, getSchedules} from "../controllers/ScheduleController.js";
-
+import { forgotPassword, resetPassword } from "../controllers/Users.js";
 
 const router = express.Router();
 
@@ -18,7 +18,7 @@ const router = express.Router();
 // Hanya admin yang bisa melihat semua user
 router.get('/users', verifyToken, adminOnly, getUsers); 
 // Hanya admin yang bisa membuat user baru
-router.post('/users', verifyToken, adminOnly, Register); 
+router.post('/users', verifyToken, adminOnly, Register); //kalo mau buat akun pake rest client, hapu verifyToken, adminOnly,
 router.post('/login', Login);
 router.get('/token', refreshToken);
 router.delete('/logout', Logout);
@@ -43,6 +43,7 @@ router.post('/alat/:deviceId/jadwal', verifyToken, createScheduleForDevice);
 router.delete('/jadwal/:scheduleId', verifyToken, deleteSchedule);
 router.patch('/jadwal/:scheduleId', verifyToken, updateSchedule);
 router.get('/jadwal', verifyToken, getSchedules);
-
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password/:token', resetPassword);
 
 export default router;

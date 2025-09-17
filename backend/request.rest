@@ -7,8 +7,8 @@ Content-Type: application/json
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwibmFtZSI6IkFkbWluIiwiZW1haWwiOiJhZG1pbkBjb250b2guY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzU3NTQxMDU5LCJleHAiOjE3NTc1NDQ2NTl9.abcdef123456
 
 {
-    "name": "Test",
-    "email": "test@example.com",
+    "name": "admin",
+    "email": "admin@example.com",
     "password": "123",
     "confPassword": "123",
     "role": "user" 

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import agrifamLogo from '../assets/agrifam.jpg';
 import api from '../api';
+import { Link } from 'react-router-dom';
 
 // Improved Eye Icon Component
 const EyeIcon = ({ isOpen }) => (
@@ -177,7 +178,9 @@ const LoginPage = () => {
                                 />
                                 Ingat saya
                             </label>
-                            <a href=" " className="text-green-600 hover:underline font-medium">Lupa Kata Sandi?</a>
+                            <Link to="/forgot-password" className="text-sm font-semibold text-green-600 hover:underline">
+                                Lupa Kata Sandi?
+                            </Link>
                         </motion.div>
 
                         <motion.div variants={itemVariants}>

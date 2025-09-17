@@ -1,11 +1,14 @@
+import { sendEmail } from '../utils/emailSender.js'; 
 import Users from "../models/UserModel.js"
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
+import { Op } from "sequelize";
 
 export const getUsers = async(req, res) => {
      try {
         const users = await Users.findAll({
-            attributes:['id','name','email']
+             attributes: ['id', 'name', 'email', 'role']
         });
         res.json(users);
      } catch (error) {
@@ -43,6 +46,7 @@ export const Login = async(req, res) => {
        // Bandingkan password
         const match = await bcrypt.compare(req.body.password, user.password);
         if (!match) return res.status(400).json({ msg: "Password salah" });
+
 
 
         // --- PERBAIKAN: Akses properti langsung dari objek 'user' ---
@@ -84,23 +88,140 @@ export const Login = async(req, res) => {
 }    
 
 export const Logout = async(req, res) => {
-    const refreshToken = req.cookies.refreshToken;
-    if(!refreshToken) return res.sendStatus(204);
-    const user = await Users.findAll({
-        where: {
-            refresh_token: refreshToken
-        }
-    });
-    if(!user[0]) return res.sendStatus(204);
-    const userId = user[0].id;
-    await Users.update({refresh_token: null}, {
-        where: {
-            id: user[0].id
-        }
-    });
-    res.clearCookie('refreshToken');
-    res.sendStatus(200);
+    try {
+        const refreshToken = req.cookies.refreshToken;
+        if (!refreshToken) return res.sendStatus(204);
+
+        // Gunakan findOne untuk efisiensi
+        const user = await Users.findOne({
+            where: {
+                refresh_token: refreshToken
+            }
+        });
+
+        // Jika user dengan token itu tidak ada, cukup kirim status sukses (204)
+        if (!user) return res.sendStatus(204);
+
+        // Update refresh_token menjadi null
+        await Users.update({ refresh_token: null }, {
+            where: {
+                id: user.id
+            }
+        });
+
+        res.clearCookie('refreshToken');
+        return res.sendStatus(200);
+
+    } catch (error) {
+        console.error("Terjadi error saat logout:", error);
+        return res.status(500).json({ msg: "Internal Server Error" });
+    }
 }
+
+// export const forgotPassword = async (req, res) => {
+//     const { email } = req.body;
+//     try {
+//         const user = await Users.findOne({ where: { email: email } });
+//         if (!user) {
+//             // Kirim respons sukses meskipun email tidak ditemukan untuk alasan keamanan
+//             return res.status(200).json({ msg: "Jika email Anda terdaftar, Anda akan menerima link reset password." });
+//         }
+
+//         // Buat token reset
+//         const resetToken = crypto.randomBytes(20).toString('hex');
+        
+//         // Simpan token dan waktu kedaluwarsanya (misalnya, 1 jam) ke database
+//         user.resetPasswordToken = resetToken;
+//         user.resetPasswordExpires = Date.now() + 3600000; // 1 jam dari sekarang
+//         await user.save();
+
+//         // Kirim email ke pengguna (Anda perlu membuat fungsi sendEmail sendiri)
+//         const resetURL = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+//         const message = `Anda menerima email ini karena Anda (atau orang lain) meminta reset password untuk akun Anda.\n\nSilakan klik link berikut, atau salin ke browser Anda untuk menyelesaikan proses:\n\n${resetURL}\n\nJika Anda tidak meminta ini, abaikan email ini dan password Anda akan tetap aman.\n`;
+        
+//         console.log("Reset URL:", resetURL); // Untuk debugging
+//         res.status(200).json({ msg: "Email reset password telah dikirim." });
+
+//     } catch (error) {
+//         res.status(500).json({ msg: "Terjadi kesalahan di server." });
+//     }
+// };
+
+export const forgotPassword = async (req, res) => {
+    const { email } = req.body;
+    try {
+        const user = await Users.findOne({ where: { email: email } });
+        if (!user) {
+            // Tetap kirim respons sukses untuk keamanan, agar orang tidak bisa menebak email terdaftar
+            return res.status(200).json({ msg: "Jika email Anda terdaftar, Anda akan menerima link reset password." });
+        }
+
+        // Buat token reset
+        const resetToken = crypto.randomBytes(20).toString('hex');
+        
+        // Simpan token dan waktu kedaluwarsa (1 jam)
+        user.resetPasswordToken = resetToken;
+        user.resetPasswordExpires = Date.now() + 3600000;
+        await user.save();
+
+        // Siapkan URL dan pesan email
+        const resetURL = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+        const message = `Anda menerima email ini karena ada permintaan untuk me-reset password akun Agrifam Anda.\n\nSilakan klik link berikut untuk melanjutkan:\n\n${resetURL}\n\nLink ini akan kedaluwarsa dalam 1 jam.\n\nJika Anda tidak meminta ini, silakan abaikan email ini.\n`;
+        
+        console.log("Reset URL (untuk debugging):", resetURL); // Tetap tampilkan di konsol untuk jaga-jaga
+
+        // --- INI ADALAH BAGIAN YANG HILANG ---
+        // Panggil fungsi sendEmail yang sudah kita buat
+        await sendEmail({
+            email: user.email,
+            subject: 'Link Reset Password Akun Agrifam',
+            message: message
+        });
+        // ------------------------------------
+
+        res.status(200).json({ msg: "Email reset password telah dikirim." });
+
+    } catch (error) {
+        console.error('Error di forgotPassword:', error);
+        res.status(500).json({ msg: "Terjadi kesalahan di server." });
+    }
+};
+
+
+export const resetPassword = async (req, res) => {
+    try {
+        const resetToken = req.params.token;
+        const { password, confPassword } = req.body;
+
+        // Cari user dengan token yang valid dan belum kedaluwarsa
+        const user = await Users.findOne({
+            where: {
+                resetPasswordToken: resetToken,
+                resetPasswordExpires: { [Op.gt]: Date.now() } // Op.gt = Greater Than
+            }
+        });
+
+        if (!user) {
+            return res.status(400).json({ msg: "Token reset password tidak valid atau sudah kedaluwarsa." });
+        }
+
+        if (password !== confPassword) return res.status(400).json({ msg: "Password tidak cocok." });
+
+        // Hash password baru dan simpan
+        const salt = await bcrypt.genSalt();
+        user.password = await bcrypt.hash(password, salt);
+        
+        // Hapus token setelah digunakan
+        user.resetPasswordToken = null;
+        user.resetPasswordExpires = null;
+        await user.save();
+
+        res.status(200).json({ msg: "Password berhasil diubah. Silakan login." });
+
+    } catch (error) {
+        res.status(500).json({ msg: error.message });
+    }
+};
 
 // --- TAMBAHKAN FUNGSI BARU INI ---
 export const getMe = async(req, res) => {

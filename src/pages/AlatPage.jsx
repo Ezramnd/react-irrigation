@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
-import { FaQrcode } from 'react-icons/fa';
+import { FaQrcode, FaImage } from 'react-icons/fa';
+import QrScannerLib from 'qr-scanner';
 import api from '../api';
 import MainLayout from '../components/MainLayout';
 import QrScanner from '../components/QrScanner';
@@ -45,7 +46,25 @@ const FormTambahAlat = ({ onClose, onTambahAlat }) => {
     const [status, setStatus] = useState('active');
     const [macAddress, setMacAddress] = useState('');
     const [isScannerOpen, setIsScannerOpen] = useState(false);
+    const fileInputRef = useRef(null);
     
+    const handleFileScan = async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const notif = toast.loading("Menganalisis gambar QR Code...");
+        try {
+            const result = await QrScannerLib.scanImage(file, { returnDetailedScanResult: true });
+            setMacAddress(result.data);
+            toast.success("MAC Address berhasil dipindai!", { id: notif });
+        } catch (error) {
+            console.error(error);
+            toast.error("QR Code tidak ditemukan di gambar.", { id: notif });
+        }
+        // Reset input file agar bisa memilih file yang sama lagi
+        event.target.value = null; 
+    };
+
     const handleSubmit = (e) => { 
         e.preventDefault(); 
         if (!namaAlat.trim() || !jenisAlat.trim() || !lokasiAlat.trim()) { 
@@ -85,7 +104,7 @@ const FormTambahAlat = ({ onClose, onTambahAlat }) => {
                         <div><label className="block text-sm font-semibold text-gray-700 mb-1">Lokasi Alat</label><input required type="text" value={lokasiAlat} onChange={(e) => setLokasiAlat(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 placeholder-italic" placeholder="Sukawening, Dramaga" /></div>
                         
                         {/* MAC Address Field with Scan Button */}
-                        <div>
+                        {/* <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-1">
                                 MAC Address Perangkat
                             </label>
@@ -105,7 +124,48 @@ const FormTambahAlat = ({ onClose, onTambahAlat }) => {
                                 >
                                     <FaQrcode className="h-5 w-5" />
                                     <span>Pindai Alat</span>
-                                </button>
+                                </button> */}
+                                <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                MAC Address Perangkat
+                            </label>
+                            <div className="flex flex-col space-y-2">
+                                {/* Input untuk menampilkan hasil (bisa diketik manual juga) */}
+                                <input
+                                    type="text"
+                                    value={macAddress}
+                                    onChange={(e) => setMacAddress(e.target.value)}
+                                    className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 font-mono"
+                                    placeholder="Isi manual atau pindai..."
+                                    required
+                                />
+                                
+                                {/* Tombol-tombol pemindai */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsScannerOpen(true)}
+                                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors duration-300 shadow-sm"
+                                    >
+                                        <FaQrcode className="h-5 w-5" />
+                                        <span>Pindai Kamera</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current.click()}
+                                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gray-600 text-white rounded-xl font-semibold hover:bg-gray-700 transition-colors duration-300 shadow-sm"
+                                    >
+                                        <FaImage className="h-5 w-5" />
+                                        <span>Upload Gambar</span>
+                                    </button>
+                                </div>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    ref={fileInputRef}
+                                    onChange={handleFileScan}
+                                    className="hidden"
+                                />
                             </div>
                         </div>
                         

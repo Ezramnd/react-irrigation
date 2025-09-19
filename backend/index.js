@@ -45,7 +45,12 @@ try {
     console.log('✅ Database Connected');
     await db.sync();
 } catch (error) { console.error('❌ Database Error:', error); }
-app.use(cors({ credentials: true, origin: FRONTEND_URL }));
+// Izinkan semua origin, atau tentukan array origin
+app.use(cors({ credentials: true, origin: [FRONTEND_URL, 'http://192.168.1.10:8081'] })); 
+// Ganti 192.168.1.10 dengan IP lokal komputer Anda. 
+// Port 8081 adalah default Expo.
+// Atau cara paling mudah untuk development:
+// app.use(cors({ credentials: true, origin: '*' })); // Kurang aman untuk produksi
 app.use(cookieParser());
 app.use(express.json());
 app.use(router);

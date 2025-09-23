@@ -127,11 +127,10 @@ const UsersPage = () => {
         <MainLayout>
             <Toaster position="top-center" />
             <div className="p-8">
-                <div className="flex justify-between items-center mb-6">
-                    <h1 className="text-3xl font-bold">Manajemen User</h1>
-                    <button onClick={() => setModalState({ isOpen: true, user: null })} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                        <FiUserPlus /> Tambah User
-                    </button>
+                <div className="flex justify-end items-center mb-6">
+                        <button onClick={() => setModalState({ isOpen: true, user: null })} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            <FiUserPlus /> Tambah User
+                        </button>
                 </div>
                 {isLoading ? <p className="text-center">Memuat...</p> : (
                     <div className="bg-white p-4 rounded-lg shadow">

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
-import { FaQrcode, FaImage } from 'react-icons/fa';
+import { FaFan, FaThermometerHalf, FaPowerOff, FaQrcode, FaImage } from 'react-icons/fa';
 import QrScannerLib from 'qr-scanner';
 import api from '../api';
 import MainLayout from '../components/MainLayout';
@@ -16,7 +16,7 @@ const AlatCard = ({ alat, onClick }) => {
     const statusInfo = { active: { text: 'Active', textColor: 'text-green-600', bgColor: 'bg-green-100' }, inactive: { text: 'Inactive', textColor: 'text-red-600', bgColor: 'bg-red-100' }, maintenance: { text: 'Maintenance', textColor: 'text-orange-600', bgColor: 'bg-orange-100' } };
     const currentStatus = statusInfo[status] || { text: 'Unknown', textColor: 'text-gray-600', bgColor: 'bg-gray-100' };
     return (
-        <motion.div layout layoutId={`card-container-${alat.id}`} className="bg-white rounded-2xl shadow-lg overflow-hidden transform hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col min-h-[180px]" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={onClick} >
+        <div layout layoutId={`card-container-${alat.id}`} className="bg-white rounded-2xl shadow-lg overflow-hidden transform hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col min-h-[180px]" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={onClick} >
             <div className="p-6 flex-grow">
                 <div className="flex justify-between items-start">
                     <div>
@@ -33,7 +33,7 @@ const AlatCard = ({ alat, onClick }) => {
                     Lihat Detail →
                 </span>
             </div>
-        </motion.div>
+        </div>
     );
 };
 
@@ -95,8 +95,8 @@ const FormTambahAlat = ({ onClose, onTambahAlat }) => {
     
     return (
         <>
-            <motion.div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" variants={backdropVariants} initial="hidden" animate="visible" exit="hidden" onClick={onClose}>
-                <motion.div className="bg-gradient-to-br from-white to-gray-50 p-8 rounded-3xl shadow-xl border border-gray-100 w-full max-w-lg relative" variants={modalVariants} initial="hidden" animate="visible" exit="exit" onClick={(e) => e.stopPropagation()}>
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" variants={backdropVariants} initial="hidden" animate="visible" exit="hidden" onClick={onClose}>
+                <div className="bg-gradient-to-br from-white to-gray-50 p-8 rounded-3xl shadow-xl border border-gray-100 w-full max-w-lg relative" variants={modalVariants} initial="hidden" animate="visible" exit="exit" onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-between items-center mb-6 border-b pb-4 border-gray-200"><h2 className="text-3xl font-extrabold text-gray-800">Tambahkan Alat Baru</h2><button onClick={onClose} className="p-2 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-all duration-200 focus:outline-none"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button></div>
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div><label className="block text-sm font-semibold text-gray-700 mb-1">Nama Alat</label><input required type="text" value={namaAlat} onChange={(e) => setNamaAlat(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Masukkan nama alat" /></div>
@@ -171,8 +171,8 @@ const FormTambahAlat = ({ onClose, onTambahAlat }) => {
                         
                         <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 mt-8"><motion.button type="button" onClick={onClose} className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-semibold shadow-md">Batal</motion.button><motion.button type="submit" className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 font-semibold shadow-md">Simpan Alat</motion.button></div>
                     </form>
-                </motion.div>
-            </motion.div>
+                </div>
+            </div>
             
             <AnimatePresence>
                 {isScannerOpen && (
@@ -185,6 +185,128 @@ const FormTambahAlat = ({ onClose, onTambahAlat }) => {
         </>
     );
 };
+
+const ModalKontrolClimate = ({ alat, onClose, onEdit }) => {
+    // State untuk menyimpan pengaturan suhu
+    const [settings, setSettings] = useState({ minSuhu: 25, maxSuhu: 30 });
+    const [isLoading, setIsLoading] = useState(true);
+
+    // State untuk kontrol manual
+    const [kipas1, setKipas1] = useState(false);
+    const [kipas2, setKipas2] = useState(false);
+    const [heater, setHeater] = useState(false);
+
+    // TODO: Di masa depan, ambil data awal dari backend
+    useEffect(() => {
+        // const fetchClimateSettings = async () => {
+        //     try {
+        //         const response = await api.get(`/alat/${alat.id}/climate`);
+        //         setSettings(response.data);
+        //     } catch (error) { toast.error("Gagal memuat pengaturan climate."); }
+        //     finally { setIsLoading(false); }
+        // };
+        // fetchClimateSettings();
+        setIsLoading(false); // Hapus ini jika sudah terhubung ke API
+    }, [alat.id]);
+
+    const handleSaveSettings = async () => {
+        toast.promise(
+            api.patch(`/alat/${alat.id}/climate`, settings),
+            {
+                loading: 'Menyimpan pengaturan...',
+                success: 'Pengaturan berhasil disimpan!',
+                error: 'Gagal menyimpan pengaturan.',
+            }
+        );
+    };
+    
+    // TODO: Hubungkan fungsi ini ke backend via MQTT/Socket.IO
+    const handleManualControl = (perangkat, status) => {
+        console.log(`Perintah manual: ${perangkat} -> ${status ? 'ON' : 'OFF'}`);
+        // socket.emit('climate-command', { deviceId: alat.id, perangkat, status });
+    };
+
+
+     return (
+        <div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div layoutId={`card-container-${alat.id}`} className="bg-gray-100 w-full h-full max-w-4xl rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+                <div className="flex-shrink-0 flex justify-between items-center border-b p-6 bg-white">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-800">Kontrol Iklim: {alat.nama}</h2>
+                        <p className="text-gray-500">{alat.lokasi}</p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <button onClick={() => onEdit(alat)} className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold">Edit Info</button>
+                        <button onClick={onClose} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+                    </div>
+                </div>
+                
+                <div className="flex-grow p-6 overflow-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Kolom Kiri: Pengaturan Otomatis */}
+                    <div className="bg-white p-6 rounded-xl shadow-md flex flex-col">
+                        <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-4">Pengaturan Otomatis</h3>
+                        {isLoading ? <p>Memuat...</p> : (
+                            <div className="space-y-6 flex-grow flex flex-col justify-between">
+                                <div className="space-y-6">
+                                    {/* Slider Suhu Minimal */}
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Suhu Minimal (Kipas & Heater OFF)</label>
+                                        <div className="flex items-center gap-4">
+                                            <FaThermometerHalf className="text-blue-500" />
+                                            <input type="range" min="15" max="40" value={settings.minSuhu} onChange={(e) => setSettings(s => ({...s, minSuhu: Number(e.target.value)}))} className="w-full" />
+                                            <span className="font-bold text-blue-600 bg-blue-100 px-3 py-1 rounded-md">{settings.minSuhu}°C</span>
+                                        </div>
+                                    </div>
+                                    {/* Slider Suhu Maksimal */}
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Suhu Maksimal (Kipas ON)</label>
+                                        <div className="flex items-center gap-4">
+                                            <FaThermometerHalf className="text-red-500" />
+                                            <input type="range" min="15" max="40" value={settings.maxSuhu} onChange={(e) => setSettings(s => ({...s, maxSuhu: Number(e.target.value)}))} className="w-full" />
+                                            <span className="font-bold text-red-600 bg-red-100 px-3 py-1 rounded-md">{settings.maxSuhu}°C</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button onClick={handleSaveSettings} className="w-full py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700">Simpan Pengaturan</button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Kolom Kanan: Kontrol Manual */}
+                    <div className="bg-white p-6 rounded-xl shadow-md">
+                        <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-4">Kontrol Manual</h3>
+                        <div className="space-y-4">
+                            {/* Toggle Kipas 1 */}
+                            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                <div className="flex items-center gap-3">
+                                    <FaFan className="text-gray-600" />
+                                    <span className="font-semibold text-gray-800">Kipas 1</span>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer"><input type="checkbox" checked={kipas1} onChange={(e) => { setKipas1(e.target.checked); handleManualControl('kipas1', e.target.checked); }} className="sr-only peer" /><div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div></label>
+                            </div>
+                            {/* Toggle Kipas 2 */}
+                            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                <div className="flex items-center gap-3">
+                                    <FaFan className="text-gray-600" />
+                                    <span className="font-semibold text-gray-800">Kipas 2</span>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer"><input type="checkbox" checked={kipas2} onChange={(e) => { setKipas2(e.target.checked); handleManualControl('kipas2', e.target.checked); }} className="sr-only peer" /><div className="w-11 h-6 bg-gray-200 rounded-full peer ..."></div></label>
+                            </div>
+                            {/* Toggle Heater */}
+                            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                <div className="flex items-center gap-3">
+                                    <FaPowerOff className="text-gray-600" />
+                                    <span className="font-semibold text-gray-800">Heater</span>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer"><input type="checkbox" checked={heater} onChange={(e) => { setHeater(e.target.checked); handleManualControl('heater', e.target.checked); }} className="sr-only peer" /><div className="w-11 h-6 bg-gray-200 rounded-full peer ..."></div></label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};  
 
 // --- [UPDATED] Komponen Modal Edit Alat ---
 const ModalEditAlat = ({ alat, onClose, onUpdate, onDelete }) => {
@@ -216,8 +338,8 @@ const ModalEditAlat = ({ alat, onClose, onUpdate, onDelete }) => {
     const modalVariants = { hidden: { y: "-50px", opacity: 0 }, visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 300, damping: 30 } }, exit: { opacity: 0, scale: 0.9, transition: { duration: 0.15 } } };
     
     return (
-        <motion.div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] p-4" variants={backdropVariants} initial="hidden" animate="visible" exit="exit" onClick={onClose}>
-            <motion.div className="bg-gradient-to-br from-white to-gray-50 p-8 rounded-3xl shadow-xl border border-gray-100 w-full max-w-lg relative" variants={modalVariants} initial="hidden" animate="visible" exit="exit" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[60] p-4" variants={backdropVariants} initial="hidden" animate="visible" exit="exit" onClick={onClose}>
+            <div className="bg-gradient-to-br from-white to-gray-50 p-8 rounded-3xl shadow-xl border border-gray-100 w-full max-w-lg relative" variants={modalVariants} initial="hidden" animate="visible" exit="exit" onClick={(e) => e.stopPropagation()}>
                 <div className="flex justify-between items-center mb-6 border-b pb-4 border-gray-200"><h2 className="text-3xl font-extrabold text-gray-800">Edit Alat</h2><button onClick={onClose} className="p-2 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-all duration-200 focus:outline-none"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button></div>
                 <form onSubmit={handleUpdate} className="space-y-6">
                     <div><label className="block text-sm font-semibold text-gray-700 mb-1">Nama Alat</label><input required type="text" name="nama" value={formData.nama} onChange={handleChange} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500"/></div>
@@ -248,8 +370,8 @@ const ModalEditAlat = ({ alat, onClose, onUpdate, onDelete }) => {
                         <div className="space-x-3"><motion.button type="button" onClick={onClose} className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-semibold shadow-md">Batal</motion.button><motion.button type="submit" className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 font-semibold shadow-md">Simpan Perubahan</motion.button></div>
                     </div>
                 </form>
-            </motion.div>
-        </motion.div>
+            </div>
+        </div>
     );
 };
 
@@ -265,8 +387,8 @@ const ModalFormJadwal = ({ onSave, onClose, jadwalToEdit }) => {
     const handleSave = (e) => { e.preventDefault(); if (!jadwal.tanggalMulai || !jadwal.tanggalSelesai || jadwal.waktu.some(w => !w) || jadwal.durasi <= 0 || jadwal.solenoid.length === 0) { toast.error('Harap isi semua field yang wajib!'); return; } onSave(jadwal); toast.success('Jadwal berhasil disimpan!'); onClose(); };
     const modalVariants = { hidden: { opacity: 0, y: -30 }, visible: { opacity: 1, y: 0, transition: { duration: 0.2 } } };
     return (
-        <motion.div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4" onClick={onClose}>
-            <motion.div variants={modalVariants} initial="hidden" animate="visible" exit="hidden" className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-2xl" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4" onClick={onClose}>
+            <div variants={modalVariants} initial="hidden" animate="visible" exit="hidden" className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-2xl" onClick={e => e.stopPropagation()}>
                 <h2 className="text-xl font-bold mb-4">{jadwalToEdit ? 'Edit Jadwal' : 'Tambah Jadwal Baru'}</h2>
                 <form onSubmit={handleSave} className="space-y-4">
                     <div><label className="block text-sm font-medium">Nama Jadwal (Opsional)</label><input type="text" value={jadwal.nama} onChange={e => setJadwal(prev => ({ ...prev, nama: e.target.value }))} placeholder="cth: Penyiraman Pagi" className="mt-1 w-full p-2 border rounded-md"/></div>
@@ -279,8 +401,8 @@ const ModalFormJadwal = ({ onSave, onClose, jadwalToEdit }) => {
                     <div><label className="block text-sm font-medium">Pilih Solenoid <span className="text-red-500">*</span></label><div className="flex flex-wrap gap-2 mt-2">{[1, 2, 3, 4, 5, 6].map(id => <button type="button" key={id} onClick={() => handleSolenoidToggle(id)} className={`px-3 py-1 rounded-full ${jadwal.solenoid.includes(id) ? 'bg-green-600 text-white' : 'bg-gray-200'}`}>Solenoid {id}</button>)}<button type="button" onClick={handlePilihSemuaSolenoid} className="px-3 py-1 rounded-full bg-green-100 text-green-800 font-semibold">Pilih Semua</button></div></div>
                     <div className="flex justify-end gap-3 pt-4 border-t mt-6"><button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 rounded-lg">Batal</button><button type="submit" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Simpan</button></div>
                 </form>
-            </motion.div>
-        </motion.div>
+            </div>
+        </div>
     );
 };
 
@@ -356,8 +478,8 @@ const ModalKontrolIrigasi = ({ alat, onClose, onEdit }) => {
 
     return (
         <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                <motion.div 
+            <div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div 
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
@@ -392,8 +514,8 @@ const ModalKontrolIrigasi = ({ alat, onClose, onEdit }) => {
                         </div>
                         {/* ... (bagian Kontrol Manual) ... */}
                     </div>
-                </motion.div>
-            </motion.div>
+                </div>
+            </div>
                 <AnimatePresence>
                     {isFormJadwalVisible && <ModalFormJadwal onClose={() => setIsFormJadwalVisible(false)} onSave={handleSimpanJadwal} jadwalToEdit={jadwalToEdit} />}
                 </AnimatePresence>
@@ -493,21 +615,28 @@ const AlatPage = () => {
             <div className="flex-1 flex flex-col">
                 <div className="flex-1 overflow-x-hidden overflow-y-auto p-6 md:p-8">
                     <LayoutGroup>
-                        <motion.div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8" layout>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8" layout>
                             {isLoading ? (
                                 <p>Loading data...</p>
                             ) : (
                                 <>
                                     {daftarAlat.map((alat) => (<AlatCard key={alat.id} alat={alat} onClick={() => handleLihatDetail(alat)} />))}
-                                    <motion.div onClick={() => setIsFormVisible(true)} className="bg-slate-50 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-slate-300 text-slate-500 hover:border-blue-500 hover:text-blue-500 cursor-pointer transition-all duration-300 min-h-[180px]" whileHover={{ scale: 1.03 }} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}>
+                                    <div onClick={() => setIsFormVisible(true)} className="bg-slate-50 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-slate-300 text-slate-500 hover:border-blue-500 hover:text-blue-500 cursor-pointer transition-all duration-300 min-h-[180px]" whileHover={{ scale: 1.03 }} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}>
                                         <div className="p-4 bg-slate-200 rounded-full mb-3"><svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg></div>
                                         <span className="font-semibold text-lg">Tambahkan Alat</span>
-                                    </motion.div>
+                                    </div>
                                 </>
                             )}
-                        </motion.div>
-                        <AnimatePresence>
-                            {selectedAlat && <ModalKontrolIrigasi alat={selectedAlat} onClose={() => setSelectedAlat(null)} onEdit={handleEdit} onDelete={handleHapusAlat} />}
+                        </div>
+                         <AnimatePresence>
+                            {selectedAlat && selectedAlat.jenis === 'Smart Irrigation' && (
+                                <ModalKontrolIrigasi alat={selectedAlat} onClose={() => setSelectedAlat(null)} onEdit={handleEdit} />
+                            )}
+                            {selectedAlat && selectedAlat.jenis === 'Climate' && (
+                                <ModalKontrolClimate alat={selectedAlat} onClose={() => setSelectedAlat(null)} onEdit={handleEdit} />
+                            )}
+                            {/* Tambahkan logika untuk jenis alat 'Dosing' di sini jika perlu */}
+                            {/* {selectedAlat && selectedAlat.jenis === 'Dosing' && ( ... )} */}
                         </AnimatePresence>
                     </LayoutGroup> 
                 </div>

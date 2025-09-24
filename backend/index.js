@@ -15,7 +15,7 @@ import { setMqttClient, subscribeToDeviceStatus } from './mqttNotifier.js';
 import { initializeRealtimeManager } from './realtimeManager.js';
 
 // --- Konfigurasi ---
-const MQTT_BROKER_URL = 'mqtt://localhost';
+const MQTT_BROKER_URL = 'mqtt://192.168.1.23';
 const FRONTEND_URL = "http://localhost:5173";
 const PORT = 5000;
 dotenv.config();

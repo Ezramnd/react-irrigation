@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import api from '../api';
 import { motion } from 'framer-motion';
 import RealtimeApexChart from "../components/RealtimeApexChart";
 import MainLayout from '../components/MainLayout';
@@ -140,7 +141,71 @@ const DataTable = () => {
 // --- Komponen Halaman Utama ---
 const DashboardPage = () => {
 
- const statsData = [
+ const [devices, setDevices] = useState([]); // Menyimpan daftar alat
+    const [selectedDeviceId, setSelectedDeviceId] = useState(''); // Menyimpan ID alat yang dipilih
+    const [dashboardData, setDashboardData] = useState({ // Menyimpan data detail (suhu, dll.)
+        suhu: 'N/A',
+        kelembaban: 'N/A',
+        cahaya: 'N/A',
+        statusIrigasi: 'Unknown'
+    });
+    const [isLoading, setIsLoading] = useState(true);
+
+     // --- BARU: Mengambil daftar alat untuk dropdown ---
+    useEffect(() => {
+        const fetchDevices = async () => {
+            try {
+                const response = await api.get('/alat');
+                setDevices(response.data);
+                // Otomatis pilih alat pertama jika ada
+                if (response.data.length > 0) {
+                    setSelectedDeviceId(response.data[0].id);
+                } else {
+                    setIsLoading(false); // Selesai loading jika tidak ada alat
+                }
+            } catch (error) {
+                console.error("Gagal memuat daftar alat:", error);
+                setIsLoading(false);
+            }
+        };
+        fetchDevices();
+    }, []); // <-- Array kosong agar hanya berjalan sekali
+
+    // --- BARU: Mengambil data detail setiap kali dropdown berubah ---
+    useEffect(() => {
+        if (!selectedDeviceId) return; // Jangan lakukan apa-apa jika tidak ada alat dipilih
+
+        const fetchDashboardData = async () => {
+            setIsLoading(true);
+            try {
+                // TODO: Nantinya, panggil API Anda di sini
+                // const response = await api.get(`/dashboard-data/${selectedDeviceId}`);
+                // setDashboardData(response.data);
+
+                // --- Simulasi pengambilan data ---
+                console.log(`Mengambil data untuk alat ID: ${selectedDeviceId}`);
+                const dummyData = {
+                    suhu: (25 + Math.random() * 5).toFixed(1),
+                    kelembaban: Math.floor(60 + Math.random() * 15),
+                    cahaya: Math.floor(50000 + Math.random() * 10000),
+                    statusIrigasi: Math.random() > 0.5 ? 'Aktif' : 'Nonaktif',
+                };
+                setTimeout(() => { // Simulasi jeda jaringan
+                    setDashboardData(dummyData);
+                    setIsLoading(false);
+                }, 300);
+                // -----------------------------
+
+            } catch (error) {
+                console.error("Gagal memuat data dashboard:", error);
+                setIsLoading(false);
+            }
+        };
+
+        fetchDashboardData();
+    }, [selectedDeviceId]);
+
+  const statsData = [
     { 
       title: 'Suhu', 
       value: '28.5', 
@@ -190,7 +255,7 @@ const DashboardPage = () => {
         <main className="flex-1 overflow-x-hidden overflow-y-auto p-3 md:p-6">
           <motion.div variants={containerVariants} initial="hidden" animate="visible">
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8 mb-6 md:mb-8">
+            {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8 mb-6 md:mb-8">
               {statsData.map((stat, index) => (
                 <motion.div key={index} variants={itemVariants}>
                   <StatCard {...stat} />
@@ -207,8 +272,49 @@ const DashboardPage = () => {
 
             <motion.div variants={itemVariants}>
               <DataTable />
-            </motion.div>
+            </motion.div> */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+                        <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Dashboard</h1>
+                        {devices.length > 0 && (
+                            <div className="flex items-center gap-2 mt-3 sm:mt-0">
+                                <label htmlFor="device-select" className="text-sm font-medium text-gray-600">Alat:</label>
+                                <select 
+                                    id="device-select"
+                                    value={selectedDeviceId} 
+                                    onChange={(e) => setSelectedDeviceId(e.target.value)}
+                                    className="w-48 p-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
+                                >
+                                    {devices.map(device => (
+                                        <option key={device.id} value={device.id}>
+                                            {device.nama}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+                    </div>
 
+                    {/* --- DIUBAH: Tampilan data menjadi dinamis --- */}
+                    {isLoading ? <p>Memuat data...</p> : !dashboardData ? <p>Silakan tambahkan alat terlebih dahulu.</p> : (
+                        <>
+                            {/* Kartu Statistik */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8 mb-6 md:mb-8">
+                                <StatCard title="Suhu" value={dashboardData.suhu} unit="°C" icon={<FaThermometerHalf />} />
+                                <StatCard title="Kelembaban" value={dashboardData.kelembaban} unit="%" icon={<FaTint />} />
+                                <StatCard title="Intensitas Cahaya" value={dashboardData.cahaya.toLocaleString('id-ID')} unit="Lux" icon={<FaSun />} />
+                                <StatCard title="Status Irigasi" value={dashboardData.statusIrigasi} isTextStatus={true} icon={<FaToggleOn />} />
+                            </div>
+
+                            {/* Grafik & Tabel */}
+                            <div className="space-y-8">
+                                <div className="bg-white p-4 md:p-6 rounded-2xl shadow-lg">
+                                    <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4 border-b pb-4">Grafik Sensor Real-time</h2>
+                                    <RealtimeApexChart />
+                                </div>
+                                <DataTable />
+                            </div>
+                        </>
+                    )}
           </motion.div>
         </main>
       </div>

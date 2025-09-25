@@ -118,45 +118,19 @@ export const Logout = async(req, res) => {
     }
 }
 
-// export const forgotPassword = async (req, res) => {
-//     const { email } = req.body;
-//     try {
-//         const user = await Users.findOne({ where: { email: email } });
-//         if (!user) {
-//             // Kirim respons sukses meskipun email tidak ditemukan untuk alasan keamanan
-//             return res.status(200).json({ msg: "Jika email Anda terdaftar, Anda akan menerima link reset password." });
-//         }
-
-//         // Buat token reset
-//         const resetToken = crypto.randomBytes(20).toString('hex');
-        
-//         // Simpan token dan waktu kedaluwarsanya (misalnya, 1 jam) ke database
-//         user.resetPasswordToken = resetToken;
-//         user.resetPasswordExpires = Date.now() + 3600000; // 1 jam dari sekarang
-//         await user.save();
-
-//         // Kirim email ke pengguna (Anda perlu membuat fungsi sendEmail sendiri)
-//         const resetURL = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
-//         const message = `Anda menerima email ini karena Anda (atau orang lain) meminta reset password untuk akun Anda.\n\nSilakan klik link berikut, atau salin ke browser Anda untuk menyelesaikan proses:\n\n${resetURL}\n\nJika Anda tidak meminta ini, abaikan email ini dan password Anda akan tetap aman.\n`;
-        
-//         console.log("Reset URL:", resetURL); // Untuk debugging
-//         res.status(200).json({ msg: "Email reset password telah dikirim." });
-
-//     } catch (error) {
-//         res.status(500).json({ msg: "Terjadi kesalahan di server." });
-//     }
-// };
-
 export const forgotPassword = async (req, res) => {
     const { email } = req.body;
     try {
         const user = await Users.findOne({ where: { email: email } });
         if (!user) {
-            // Tetap kirim respons sukses untuk keamanan, agar orang tidak bisa menebak email terdaftar
             return res.status(200).json({ msg: "Jika email Anda terdaftar, Anda akan menerima link reset password." });
         }
 
-        // Buat token reset
+        if (user.resetPasswordToken && user.resetPasswordExpires > Date.now()) {
+            return res.status(429).json({ msg: "Link reset sudah dikirim. Silakan cek email Anda atau coba lagi dalam beberapa saat." });
+            // Status 429 artinya "Too Many Requests"
+        }
+
         const resetToken = crypto.randomBytes(20).toString('hex');
         
         // Simpan token dan waktu kedaluwarsa (1 jam)
@@ -164,14 +138,11 @@ export const forgotPassword = async (req, res) => {
         user.resetPasswordExpires = Date.now() + 3600000;
         await user.save();
 
-        // Siapkan URL dan pesan email
         const resetURL = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
         const message = `Anda menerima email ini karena ada permintaan untuk me-reset password akun Agrifam Anda.\n\nSilakan klik link berikut untuk melanjutkan:\n\n${resetURL}\n\nLink ini akan kedaluwarsa dalam 1 jam.\n\nJika Anda tidak meminta ini, silakan abaikan email ini.\n`;
         
         console.log("Reset URL (untuk debugging):", resetURL); // Tetap tampilkan di konsol untuk jaga-jaga
 
-        // --- INI ADALAH BAGIAN YANG HILANG ---
-        // Panggil fungsi sendEmail yang sudah kita buat
         await sendEmail({
             email: user.email,
             subject: 'Link Reset Password Akun Agrifam',
@@ -193,11 +164,10 @@ export const resetPassword = async (req, res) => {
         const resetToken = req.params.token;
         const { password, confPassword } = req.body;
 
-        // Cari user dengan token yang valid dan belum kedaluwarsa
         const user = await Users.findOne({
             where: {
                 resetPasswordToken: resetToken,
-                resetPasswordExpires: { [Op.gt]: Date.now() } // Op.gt = Greater Than
+                resetPasswordExpires: { [Op.gt]: Date.now() } 
             }
         });
 
@@ -207,11 +177,9 @@ export const resetPassword = async (req, res) => {
 
         if (password !== confPassword) return res.status(400).json({ msg: "Password tidak cocok." });
 
-        // Hash password baru dan simpan
         const salt = await bcrypt.genSalt();
         user.password = await bcrypt.hash(password, salt);
         
-        // Hapus token setelah digunakan
         user.resetPasswordToken = null;
         user.resetPasswordExpires = null;
         await user.save();
@@ -223,15 +191,13 @@ export const resetPassword = async (req, res) => {
     }
 };
 
-// --- TAMBAHKAN FUNGSI BARU INI ---
 export const getMe = async(req, res) => {
     try {
-        // req.userId didapat dari middleware verifyToken
         const user = await Users.findOne({
             where: {
                 id: req.userId
             },
-            attributes: ['id', 'name', 'email', 'role'] // Ambil atribut yang dibutuhkan
+            attributes: ['id', 'name', 'email', 'role'] 
         });
         if (!user) return res.status(404).json({ msg: "User tidak ditemukan" });
         res.json(user);
@@ -240,7 +206,6 @@ export const getMe = async(req, res) => {
     }
 }
 
-// --- TAMBAHKAN FUNGSI BARU UNTUK UPDATE USER ---
 export const updateUser = async (req, res) => {
     const { id } = req.params;
     const { name, email, role, password } = req.body;
@@ -268,14 +233,12 @@ export const updateUser = async (req, res) => {
     }
 }
 
-// --- TAMBAHKAN FUNGSI BARU UNTUK DELETE USER ---
 export const deleteUser = async (req, res) => {
     const { id } = req.params;
     try {
         const user = await Users.findOne({ where: { id: id } });
         if (!user) return res.status(404).json({ msg: "User tidak ditemukan" });
 
-        // Tambahan: Mencegah admin menghapus akunnya sendiri
         if (req.userId === user.id) {
             return res.status(403).json({ msg: "Admin tidak bisa menghapus akunnya sendiri." });
         }

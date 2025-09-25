@@ -5,15 +5,19 @@ import api from '../api';
 const ForgotPasswordPage = () => {
     const [email, setEmail] = useState('');
     const [message, setMessage] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setMessage('');
+        setIsLoading(true);
         try {
             const response = await api.post('/forgot-password', { email });
             setMessage(response.data.msg);
         } catch (error) {
             setMessage(error.response?.data?.msg || 'Terjadi kesalahan.');
+        } finally {
+            setIsLoading(false); 
         }
     };
 
@@ -30,8 +34,12 @@ const ForgotPasswordPage = () => {
                         className="w-full p-3 mb-4 border rounded"
                         required
                     />
-                    <button type="submit" className="w-full bg-green-600 text-white p-3 rounded">
-                        Kirim Link Reset
+                    <button 
+                        type="submit" 
+                        className="w-full bg-green-600 text-white p-3 rounded-lg hover:bg-green-700 font-semibold disabled:bg-green-300 disabled:cursor-not-allowed"
+                        disabled={isLoading} 
+                    >
+                        {isLoading ? 'Mengirim...' : 'Kirim Link Reset'} 
                     </button>
                 </form>
                 {message && <p className="mt-4 text-center text-sm text-gray-600">{message}</p>}

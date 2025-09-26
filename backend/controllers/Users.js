@@ -5,147 +5,162 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { Op } from "sequelize";
 
-export const getUsers = async(req, res) => {
-     try {
+// Mengambil semua user (hanya untuk admin)
+export const getUsers = async (req, res) => {
+    try {
         const users = await Users.findAll({
-             attributes: ['id', 'name', 'email', 'role']
+            attributes: ['id', 'name', 'email', 'role']
         });
         res.json(users);
-     } catch (error) {
-        console.log(error);
-     }
-}
-
-export const Register = async(req, res) => {
-    const { name, email, password, confPassword } = req.body;
-    if(password !== confPassword) {
-        return res.status(400).json({msg: "Passwords do not match"});
-    }
-    const salt = await bcrypt.genSalt();
-    const hashedPassword = await bcrypt.hash(password, salt);
-    try {
-        await Users.create({ 
-            name: name, 
-            email: email, 
-            password: hashedPassword 
-        });
-        res.json({msg: "User created successfully"});
     } catch (error) {
-        console.log(error);
+        res.status(500).json({ msg: "Terjadi kesalahan di server." });
     }
 }
 
-export const Login = async(req, res) => {
+// Mendaftarkan user baru (hanya untuk admin)
+export const Register = async (req, res) => {
+    const { name, email, password, confPassword, role } = req.body;
+
+    if (password !== confPassword) {
+        return res.status(400).json({ msg: "Password dan Konfirmasi Password tidak cocok." });
+    }
+    
     try {
-       // Menggunakan findOne sudah benar, hasilnya adalah satu objek user
-        const user = await Users.findOne({
-            where: {
-                email: req.body.email
-            }
+        // Cek apakah email sudah terdaftar
+        const existingUser = await Users.findOne({ where: { email: email } });
+        if (existingUser) {
+            return res.status(409).json({ msg: "Email sudah terdaftar." });
+        }
+
+        const salt = await bcrypt.genSalt();
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        await Users.create({
+            name: name,
+            email: email,
+            password: hashedPassword,
+            role: role || 'user' // Default ke 'user' jika tidak disediakan
         });
-       // Bandingkan password
+        res.status(201).json({ msg: "User berhasil dibuat." });
+    } catch (error) {
+        res.status(500).json({ msg: "Terjadi kesalahan saat membuat user." });
+    }
+}
+
+// Login user
+export const Login = async (req, res) => {
+    try {
+        const user = await Users.findOne({ where: { email: req.body.email } });
+        if (!user) return res.status(404).json({ msg: "Email tidak ditemukan." });
+
         const match = await bcrypt.compare(req.body.password, user.password);
-        if (!match) return res.status(400).json({ msg: "Password salah" });
+        if (!match) return res.status(400).json({ msg: "Password salah." });
 
-
-
-        // --- PERBAIKAN: Akses properti langsung dari objek 'user' ---
-        const userId = user.id;
-        const name = user.name;
-        const email = user.email;
-        const role = user.role;
-        // -----------------------------------------------------------
+        const { id, name, email, role } = user;
         const keepLoggedIn = req.body.keepLoggedIn;
 
-        const refreshTokenDuration = keepLoggedIn ? '7d' : '1d';
-        const cookieMaxAge = keepLoggedIn 
-            ? 7 * 24 * 60 * 60 * 1000  // 7 hari
-            : 1 * 24 * 60 * 60 * 1000; // 1 hari
+        // Buat payload yang konsisten untuk kedua token
+        const tokenPayload = { id, name, email, role };
 
-        const accessToken = jwt.sign({id: userId, email: email, role: role}, process.env.ACCESS_TOKEN_SECRET, 
-            {
-                expiresIn: "1h"
-            });
-        const refreshToken = jwt.sign({id: userId, email: email, role: role}, process.env.REFRESH_TOKEN_SECRET,
-            {
-                expiresIn: refreshTokenDuration
-            });
-            await Users.update({refresh_token: refreshToken}, {
-                where: {
-                    id: userId
-                }
-            });
-            res.cookie('refreshToken', refreshToken, {
-                httpOnly: true,
-                maxAge: cookieMaxAge, // 1 day
-                // secure: true, // Aktifkan ini saat deploy ke HTTPS
-                // secure: true, //tidak perlu karena masih server local
-            });
-            res.json({ accessToken });
+        const accessToken = jwt.sign(tokenPayload, process.env.ACCESS_TOKEN_SECRET, {
+            expiresIn: "1h"
+        });
+        const refreshToken = jwt.sign(tokenPayload, process.env.REFRESH_TOKEN_SECRET, {
+            expiresIn: keepLoggedIn ? '7d' : '1d'
+        });
+            
+        await user.update({ refresh_token: refreshToken });
+        
+        res.cookie('refreshToken', refreshToken, {
+            httpOnly: true,
+            maxAge: (keepLoggedIn ? 7 : 1) * 24 * 60 * 60 * 1000,
+            secure: process.env.NODE_ENV === 'production', // Hanya secure di produksi
+            sameSite: 'strict'
+        });
+
+        res.json({ accessToken });
     } catch (error) {
-        res.status(500).json({msg: "Internal server error"});
+        res.status(500).json({ msg: "Terjadi kesalahan di server." });
     }
-}    
+}  
 
-export const Logout = async(req, res) => {
+// Logout user
+export const Logout = async (req, res) => {
     try {
         const refreshToken = req.cookies.refreshToken;
-        if (!refreshToken) return res.sendStatus(204);
+        if (!refreshToken) return res.sendStatus(204); // No Content
 
-        // Gunakan findOne untuk efisiensi
-        const user = await Users.findOne({
-            where: {
-                refresh_token: refreshToken
-            }
-        });
+        const user = await Users.findOne({ where: { refresh_token: refreshToken } });
+        if (!user) {
+            res.clearCookie('refreshToken');
+            return res.sendStatus(204);
+        }
 
-        // Jika user dengan token itu tidak ada, cukup kirim status sukses (204)
-        if (!user) return res.sendStatus(204);
-
-        // Update refresh_token menjadi null
-        await Users.update({ refresh_token: null }, {
-            where: {
-                id: user.id
-            }
-        });
-
+        await user.update({ refresh_token: null });
         res.clearCookie('refreshToken');
-        return res.sendStatus(200);
-
+        return res.sendStatus(200); // OK
     } catch (error) {
-        console.error("Terjadi error saat logout:", error);
-        return res.status(500).json({ msg: "Internal Server Error" });
+        res.status(500).json({ msg: "Terjadi kesalahan di server." });
+    }
+}
+// Mengambil data user yang sedang login
+export const getMe = async (req, res) => {
+    // Fungsi ini tidak perlu query DB, karena verifyToken sudah menyediakan datanya.
+    // Tapi jika ingin data paling fresh, ini sudah benar.
+    // Untuk efisiensi, kita bisa ambil dari token saja, namun ini lebih aman.
+    try {
+        const user = await Users.findByPk(req.userId, {
+            attributes: ['id', 'name', 'email', 'role']
+        });
+        if (!user) return res.status(404).json({ msg: "User tidak ditemukan" });
+        res.json(user);
+    } catch (error) {
+        res.status(500).json({ msg: error.message });
     }
 }
 
-// export const forgotPassword = async (req, res) => {
-//     const { email } = req.body;
-//     try {
-//         const user = await Users.findOne({ where: { email: email } });
-//         if (!user) {
-//             // Kirim respons sukses meskipun email tidak ditemukan untuk alasan keamanan
-//             return res.status(200).json({ msg: "Jika email Anda terdaftar, Anda akan menerima link reset password." });
-//         }
+// Memperbarui data user (hanya untuk admin)
+export const updateUser = async (req, res) => {
+    const { name, email, role, password } = req.body;
+    try {
+        const user = await Users.findByPk(req.params.id);
+        if (!user) return res.status(404).json({ msg: "User tidak ditemukan" });
 
-//         // Buat token reset
-//         const resetToken = crypto.randomBytes(20).toString('hex');
-        
-//         // Simpan token dan waktu kedaluwarsanya (misalnya, 1 jam) ke database
-//         user.resetPasswordToken = resetToken;
-//         user.resetPasswordExpires = Date.now() + 3600000; // 1 jam dari sekarang
-//         await user.save();
+        // Cek duplikasi email jika email diubah
+        if (email && email !== user.email) {
+            const existingUser = await Users.findOne({ where: { email: email } });
+            if (existingUser) return res.status(409).json({ msg: "Email sudah digunakan." });
+        }
 
-//         // Kirim email ke pengguna (Anda perlu membuat fungsi sendEmail sendiri)
-//         const resetURL = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
-//         const message = `Anda menerima email ini karena Anda (atau orang lain) meminta reset password untuk akun Anda.\n\nSilakan klik link berikut, atau salin ke browser Anda untuk menyelesaikan proses:\n\n${resetURL}\n\nJika Anda tidak meminta ini, abaikan email ini dan password Anda akan tetap aman.\n`;
-        
-//         console.log("Reset URL:", resetURL); // Untuk debugging
-//         res.status(200).json({ msg: "Email reset password telah dikirim." });
+        let hashedPassword = user.password;
+        if (password && password.trim() !== "") {
+            const salt = await bcrypt.genSalt();
+            hashedPassword = await bcrypt.hash(password, salt);
+        }
 
-//     } catch (error) {
-//         res.status(500).json({ msg: "Terjadi kesalahan di server." });
-//     }
-// };
+        await user.update({ name, email, role, password: hashedPassword });
+        res.json({ msg: "User berhasil diperbarui" });
+    } catch (error) {
+        res.status(500).json({ msg: error.message });
+    }
+}
+
+// Menghapus user (hanya untuk admin)
+export const deleteUser = async (req, res) => {
+    try {
+        const user = await Users.findByPk(req.params.id);
+        if (!user) return res.status(404).json({ msg: "User tidak ditemukan" });
+
+        if (req.userId === user.id) {
+            return res.status(403).json({ msg: "Admin tidak bisa menghapus akunnya sendiri." });
+        }
+
+        await user.destroy();
+        res.json({ msg: "User berhasil dihapus" });
+    } catch (error) {
+        res.status(500).json({ msg: error.message });
+    }
+}
 
 export const forgotPassword = async (req, res) => {
     const { email } = req.body;
@@ -222,67 +237,3 @@ export const resetPassword = async (req, res) => {
         res.status(500).json({ msg: error.message });
     }
 };
-
-// --- TAMBAHKAN FUNGSI BARU INI ---
-export const getMe = async(req, res) => {
-    try {
-        // req.userId didapat dari middleware verifyToken
-        const user = await Users.findOne({
-            where: {
-                id: req.userId
-            },
-            attributes: ['id', 'name', 'email', 'role'] // Ambil atribut yang dibutuhkan
-        });
-        if (!user) return res.status(404).json({ msg: "User tidak ditemukan" });
-        res.json(user);
-    } catch (error) {
-        res.status(500).json({ msg: error.message });
-    }
-}
-
-// --- TAMBAHKAN FUNGSI BARU UNTUK UPDATE USER ---
-export const updateUser = async (req, res) => {
-    const { id } = req.params;
-    const { name, email, role, password } = req.body;
-
-    try {
-        const user = await Users.findOne({ where: { id: id } });
-        if (!user) return res.status(404).json({ msg: "User tidak ditemukan" });
-
-        let hashedPassword = user.password;
-        if (password && password.trim() !== "") {
-            const salt = await bcrypt.genSalt();
-            hashedPassword = await bcrypt.hash(password, salt);
-        }
-
-        await user.update({
-            name: name,
-            email: email,
-            role: role,
-            password: hashedPassword
-        });
-
-        res.json({ msg: "User berhasil diperbarui" });
-    } catch (error) {
-        res.status(500).json({ msg: error.message });
-    }
-}
-
-// --- TAMBAHKAN FUNGSI BARU UNTUK DELETE USER ---
-export const deleteUser = async (req, res) => {
-    const { id } = req.params;
-    try {
-        const user = await Users.findOne({ where: { id: id } });
-        if (!user) return res.status(404).json({ msg: "User tidak ditemukan" });
-
-        // Tambahan: Mencegah admin menghapus akunnya sendiri
-        if (req.userId === user.id) {
-            return res.status(403).json({ msg: "Admin tidak bisa menghapus akunnya sendiri." });
-        }
-
-        await user.destroy();
-        res.json({ msg: "User berhasil dihapus" });
-    } catch (error) {
-        res.status(500).json({ msg: error.message });
-    }
-}

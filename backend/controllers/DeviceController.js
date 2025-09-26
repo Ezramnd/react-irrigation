@@ -1,85 +1,94 @@
 import Devices from "../models/DeviceModel.js";
 import Schedules from "../models/ScheduleModel.js";
 import Users from "../models/UserModel.js";
+import { Op } from 'sequelize';
 
+// Mengambil semua alat (untuk admin) atau hanya milik sendiri (untuk user)
 export const getDevices = async (req, res) => {
     try {
-        let options = {
+        const options = {
+            attributes: ['id', 'nama', 'jenis', 'lokasi', 'status', 'macAddress'],
             include: [{
                 model: Users,
                 attributes: ['name', 'email']
             }]
         };
 
-        // --- LOGIKA PERAN DITERAPKAN DI SINI ---
-        if (req.role === "user") {
+        // Jika yang login bukan admin, filter berdasarkan userId
+        if (req.role !== "admin") {
             options.where = { userId: req.userId };
         }
-        // Jika admin, 'where' akan kosong, sehingga mengambil semua data.
 
-        const response = await Devices.findAll(options);
-        res.status(200).json(response);
+        const devices = await Devices.findAll(options);
+        res.status(200).json(devices);
     } catch (error) {
         res.status(500).json({ msg: error.message });
     }
 }
 
+// Menambahkan alat baru
 export const createDevice = async (req, res) => {
-    // 1. Ambil SEMUA field yang dibutuhkan, termasuk macAddress
     const { nama, jenis, lokasi, macAddress } = req.body;
 
-    // 2. Validasi: pastikan macAddress dikirim oleh frontend
-    if (!macAddress) {
-        return res.status(400).json({ msg: "MAC Address wajib diisi." });
+    // Validasi input dasar
+    if (!nama || !jenis || !lokasi) {
+        return res.status(400).json({ msg: "Nama, Jenis, dan Lokasi wajib diisi." });
     }
 
     try {
-        // 3. Cek apakah MAC Address sudah terdaftar untuk mencegah duplikat
-        const existingMac = await Devices.findOne({ where: { macAddress } });
-        if (existingMac) {
-            return res.status(409).json({ msg: "MAC Address ini sudah terdaftar." });
+        // Pembatasan MAC Address
+        // Jika MAC Address diberikan, cek dulu apakah sudah terpakai
+        if (macAddress) {
+            const existingMac = await Devices.findOne({ where: { macAddress } });
+            if (existingMac) {
+                return res.status(409).json({ msg: "MAC Address ini sudah terdaftar." });
+            }
         }
 
-        // 4. Buat device baru dengan menyertakan macAddress
         const newDevice = await Devices.create({
             nama,
             jenis,
             lokasi,
-            macAddress, // <-- Tambahkan macAddress di sini
-            status: 'active', // Langsung aktif karena sudah dipasangkan
+            macAddress, // Bisa null jika tidak disediakan saat membuat
+            status: macAddress ? 'active' : 'inactive', // Aktif jika ada MAC, jika tidak maka inaktif
             userId: req.userId
         });
-
-        res.status(201).json({ msg: "Alat baru berhasil ditambahkan dan dipasangkan.", device: newDevice });
+        res.status(201).json({ msg: "Alat berhasil ditambahkan.", device: newDevice });
     } catch (error) {
         res.status(500).json({ msg: error.message });
     }
 }
 
+// Memperbarui data alat
 export const updateDevice = async (req, res) => {
-    try {
-        const device = await Devices.findOne({
-            where: { id: req.params.id, userId: req.userId }
-        });
-        if (!device) return res.status(404).json({ msg: "Alat tidak ditemukan" });
+    const { nama, jenis, lokasi, status, macAddress } = req.body;
 
-             const { macAddress } = req.body;
-        // const { nama, jenis, lokasi, status, macAddress } = req.body;
+    try {
+        const findOptions = { where: { id: req.params.id } };
+        // User biasa hanya bisa mengedit miliknya
+        if (req.role !== 'admin') {
+            findOptions.where.userId = req.userId;
+        }
         
+        const device = await Devices.findOne(findOptions);
+        if (!device) return res.status(404).json({ msg: "Alat tidak ditemukan atau Anda tidak memiliki akses." });
+
+        // Validasi duplikasi MAC Address saat mengubah
         if (macAddress && macAddress !== device.macAddress) {
             const existingMac = await Devices.findOne({ where: { macAddress } });
-            if (existingMac&& existingMac.id !== device.id) {
-                return res.status(409).json({ msg: "MAC Address ini sudah digunakan." });
+            if (existingMac) {
+                return res.status(409).json({ msg: "MAC Address ini sudah digunakan oleh alat lain." });
             }
         }
         
-           // await device.update({ 
-        //     nama, jenis, lokasi, 
-        //     status: macAddress ? 'active' : device.status,
-        //     macAddress: macAddress || device.macAddress
-        // });
-        await device.update(req.body);
-        // TIDAK ADA LAGI PANGGILAN subscribeToDeviceStatus
+        // Hanya update field yang relevan
+        await device.update({ 
+            nama, 
+            jenis, 
+            lokasi, 
+            status,
+            macAddress
+        });
 
         res.status(200).json({ msg: "Alat berhasil diperbarui" });
     } catch (error) {
@@ -87,36 +96,31 @@ export const updateDevice = async (req, res) => {
     }
 };
 
-
-// --- FUNGSI DELETE DEVICE (DIPERBARUI DENGAN LOGIKA PEMBERSIHAN JADWAL) ---
+// Menghapus alat
 export const deleteDevice = async (req, res) => {
     try {
-        // 2. Cari alat beserta jadwal yang terhubung
-        const device = await Devices.findOne({
-            where: {
-                id: req.params.id,
-                userId: req.userId
-            },
-            include: Schedules // Sertakan data jadwal
-        });
+        const findOptions = { 
+            where: { id: req.params.id },
+            include: Schedules // Sertakan jadwal untuk dibersihkan
+        };
+        // User biasa hanya bisa menghapus miliknya
+        if (req.role !== 'admin') {
+            findOptions.where.userId = req.userId;
+        }
 
-        if (!device) return res.status(404).json({ msg: "Alat tidak ditemukan" });
+        const device = await Devices.findOne(findOptions);
+        if (!device) return res.status(404).json({ msg: "Alat tidak ditemukan atau Anda tidak memiliki akses." });
 
-        // 3. Simpan ID dari jadwal-jadwal yang terhubung sebelum dihapus
         const associatedScheduleIds = device.schedules.map(schedule => schedule.id);
+        
+        await device.destroy(); // Hapus alat
 
-        // 4. Hapus alatnya. Relasi di tabel perantara akan otomatis terhapus oleh DB.
-        await device.destroy();
-
-        // 5. Periksa dan bersihkan jadwal yang mungkin sudah tidak terpakai
+        // Bersihkan jadwal yang menjadi yatim piatu atau tidak terhubung dengan alat
         if (associatedScheduleIds.length > 0) {
-            console.log(`Memeriksa jadwal yatim piatu dari daftar ID: [${associatedScheduleIds.join(', ')}]`);
             for (const scheduleId of associatedScheduleIds) {
                 const schedule = await Schedules.findByPk(scheduleId, { include: Devices });
-                // Jika jadwal masih ada TAPI sudah tidak punya koneksi ke alat mana pun...
                 if (schedule && schedule.devices.length === 0) {
-                    console.log(`Jadwal ID #${scheduleId} sudah tidak terpakai, akan dihapus.`);
-                    await schedule.destroy(); // ...maka hapus jadwal tersebut.
+                    await schedule.destroy();
                 }
             }
         }

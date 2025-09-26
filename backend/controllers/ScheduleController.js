@@ -1,28 +1,23 @@
-// controllers/ScheduleController.js
-
 import Schedules from "../models/ScheduleModel.js";
 import Devices from "../models/DeviceModel.js";
-import { publishScheduleUpdate } from "../mqttNotifier.js"; // <-- Impor notifier
+import { publishScheduleUpdate } from "../mqttNotifier.js";
 
-// Helper function untuk membuat topik dari MAC Address
+// Helper function untuk membuat topik MQTT dari MAC Address
 const createTopicFromMac = (macAddress) => {
     if (!macAddress) return null;
-    let topicMac = macAddress.replace(/:/g, '-'); // Ganti ':' dengan '-'
+    let topicMac = macAddress.replace(/:/g, '-');
     return `esp32/alat/${topicMac}/jadwal/set`;
 }
 
-// --- TAMBAHKAN FUNGSI BARU INI ---
+// Mengambil semua jadwal (untuk admin) atau hanya milik sendiri (untuk user)
 export const getSchedules = async (req, res) => {
     try {
-        let options = {
-            order: [['id', 'DESC']] // Urutkan dari yang terbaru
+        const options = {
+            order: [['id', 'DESC']]
         };
-
-        // Jika bukan admin, filter berdasarkan userId
         if (req.role !== "admin") {
             options.where = { userId: req.userId };
         }
-
         const schedules = await Schedules.findAll(options);
         res.json(schedules);
     } catch (error) {
@@ -33,26 +28,34 @@ export const getSchedules = async (req, res) => {
 // Mengambil semua jadwal yang terkait dengan sebuah alat
 export const getDeviceSchedules = async (req, res) => {
     try {
-        const device = await Devices.findByPk(req.params.deviceId, {
-            include: Schedules
-        });
+        const device = await Devices.findByPk(req.params.deviceId);
         if (!device) return res.status(404).json({ msg: "Alat tidak ditemukan" });
-        if (device.userId !== req.userId) return res.status(403).json({ msg: "Akses ditolak" });
-        
-        res.json(device.schedules);
+
+        // Admin bisa lihat jadwal alat siapa pun, user biasa hanya alatnya sendiri
+        if (req.role !== "admin" && device.userId !== req.userId) {
+            return res.status(403).json({ msg: "Akses ditolak" });
+        }
+
+        const deviceSchedules = await device.getSchedules(); // Cara Sequelize untuk mengambil relasi
+        res.json(deviceSchedules);
     } catch (error) {
         res.status(500).json({ msg: error.message });
     }
 };
 
-// --- DIUBAH: Sekarang menggunakan MAC Address untuk topik MQTT ---
+// Membuat jadwal baru dan menautkannya ke sebuah alat
 export const createScheduleForDevice = async (req, res) => {
     const { deviceId } = req.params;
     const { nama, tanggalMulai, tanggalSelesai, waktu, durasi, solenoid } = req.body;
     try {
         const device = await Devices.findByPk(deviceId);
-        if (!device || !device.macAddress) return res.status(404).json({ msg: "Alat tidak ditemukan atau belum diklaim" });
-        if (device.userId !== req.userId) return res.status(403).json({ msg: "Akses ditolak" });
+        if (!device) return res.status(404).json({ msg: "Alat tidak ditemukan" });
+
+        // Admin bisa menambah jadwal ke alat siapa pun, user biasa hanya ke alatnya sendiri
+        if (req.role !== "admin" && device.userId !== req.userId) {
+            return res.status(403).json({ msg: "Akses ditolak" });
+        }
+        if (!device.macAddress) return res.status(400).json({ msg: "Alat belum diklaim dan tidak bisa menerima jadwal." });
 
         const newSchedule = await Schedules.create({ nama, tanggalMulai, tanggalSelesai, waktu, durasi, solenoid, userId: req.userId });
         await device.addSchedule(newSchedule);
@@ -69,18 +72,23 @@ export const createScheduleForDevice = async (req, res) => {
     }
 };
 
-// --- DIUBAH: Sekarang menggunakan MAC Address untuk topik MQTT ---
+// Memperbarui sebuah jadwal
 export const updateSchedule = async (req, res) => {
     try {
-        const schedule = await Schedules.findOne({
-            where: { id: req.params.scheduleId, userId: req.userId },
-            include: Devices
-        });
-        if (!schedule) return res.status(404).json({ msg: "Jadwal tidak ditemukan" });
+        const findOptions = { where: { id: req.params.scheduleId }, include: Devices };
+        // User biasa hanya bisa mengedit jadwal miliknya
+        if (req.role !== "admin") {
+            findOptions.where.userId = req.userId;
+        }
+
+        const schedule = await Schedules.findOne(findOptions);
+        if (!schedule) return res.status(404).json({ msg: "Jadwal tidak ditemukan atau Anda tidak memiliki akses." });
+        
         await schedule.update(req.body);
 
+        // Kirim notifikasi update ke semua alat yang menggunakan jadwal ini
         for (const device of schedule.devices) {
-            if (device.macAddress) { // Hanya kirim ke perangkat yang sudah diklaim
+            if (device.macAddress) {
                 const topic = createTopicFromMac(device.macAddress);
                 const scheduleJSON = schedule.toJSON();
                 delete scheduleJSON.devices;
@@ -94,17 +102,20 @@ export const updateSchedule = async (req, res) => {
     }
 };
 
-
-// --- DIUBAH: Sekarang menggunakan MAC Address untuk topik MQTT ---
+// Menghapus sebuah jadwal
 export const deleteSchedule = async (req, res) => {
     try {
-        const schedule = await Schedules.findOne({
-            where: { id: req.params.scheduleId, userId: req.userId },
-            include: Devices
-        });
-        if (!schedule) return res.status(404).json({ msg: "Jadwal tidak ditemukan" });
+        const findOptions = { where: { id: req.params.scheduleId }, include: Devices };
+        // User biasa hanya bisa menghapus jadwal miliknya
+        if (req.role !== "admin") {
+            findOptions.where.userId = req.userId;
+        }
+        
+        const schedule = await Schedules.findOne(findOptions);
+        if (!schedule) return res.status(404).json({ msg: "Jadwal tidak ditemukan atau Anda tidak memiliki akses." });
 
         const scheduleIdToDelete = schedule.id;
+        // Kirim notifikasi hapus ke semua alat yang menggunakan jadwal ini
         for (const device of schedule.devices) {
             if (device.macAddress) {
                 const topic = createTopicFromMac(device.macAddress);

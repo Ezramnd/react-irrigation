@@ -23,7 +23,7 @@ const ResetPasswordPage = () => {
             setError('Password dan Konfirmasi Password tidak cocok.');
             return;
         }
-        
+
         setError('');
         setMessage('');
         setIsLoading(true);
@@ -50,7 +50,7 @@ const ResetPasswordPage = () => {
             <Toaster position="top-center" />
             <div className="p-8 bg-white rounded-2xl shadow-lg w-full max-w-md">
                 <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Buat Password Baru</h2>
-                
+
                 {!message ? (
                     <form onSubmit={handleSubmit} className="space-y-5">
                         <div>
@@ -75,7 +75,7 @@ const ResetPasswordPage = () => {
                         </div>
 
                         {error && <p className="text-sm text-center text-red-600">{error}</p>}
-                        
+
                         <button 
                             type="submit" 
                             className="w-full bg-green-600 text-white font-semibold p-3 rounded-lg hover:bg-green-700 disabled:bg-green-300"

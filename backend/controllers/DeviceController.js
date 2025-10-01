@@ -132,3 +132,27 @@ export const deleteDevice = async (req, res) => {
         res.status(500).json({ msg: error.message });
     }
 };
+
+export const getDeviceById = async (req, res) => {
+    try {
+        const findOptions = {
+            where: { id: req.params.id },
+            include: [
+                { model: Users, attributes: ['name', 'email'] },
+                { model: Schedules } // Sertakan semua jadwal yang terhubung
+            ]
+        };
+
+        if (req.role !== 'admin') {
+            findOptions.where.userId = req.userId;
+        }
+
+        const device = await Devices.findOne(findOptions);
+        if (!device) return res.status(404).json({ msg: "Alat tidak ditemukan atau Anda tidak memiliki akses." });
+
+        res.status(200).json(device);
+    } catch (error) {
+        res.status(500).json({ msg: error.message });
+    }
+};
+

@@ -130,3 +130,73 @@ export const deleteSchedule = async (req, res) => {
         res.status(500).json({ msg: error.message });
     }
 };
+
+// Fungsi ini dipanggil ketika ESP32 meminta sinkronisasi penuh
+export const handleSyncRequest = async (macAddress) => {
+    try {
+        console.log(`Menerima permintaan sinkronisasi dari MAC: ${macAddress}`);
+        
+        // 1. Cari perangkat di database berdasarkan MAC address
+        const device = await Devices.findOne({ where: { macAddress } });
+        if (!device) {
+            console.log(`Perangkat dengan MAC ${macAddress} tidak ditemukan.`);
+            return;
+        }
+
+        // 2. Ambil semua jadwal yang terhubung dengan perangkat ini
+        const schedules = await device.getSchedules({
+            order: [['id', 'ASC']] // Urutkan agar konsisten
+        });
+
+        // 3. Siapkan payload dengan format yang sudah kita tentukan
+        const payload = {
+            action: "REPLACE_ALL",
+            // Ubah setiap jadwal menjadi format JSON sederhana
+            schedules: schedules.map(s => s.toJSON()) 
+        };
+
+        // 4. Buat topik tujuan dan kirim kembali ke ESP32
+        const topic = createTopicFromMac(device.macAddress);
+        if (topic) {
+            publishScheduleUpdate(topic, payload);
+            console.log(`Mengirim ${schedules.length} jadwal ke topik: ${topic}`);
+        }
+
+    } catch (error) {
+        console.error("Gagal menangani permintaan sinkronisasi:", error);
+    }
+};
+
+// Helper function untuk membuat topik MQTT manual
+const createManualTopicFromMac = (macAddress) => {
+    if (!macAddress) return null;
+    const topicMac = macAddress.replace(/:/g, '-');
+    return `esp32/alat/${topicMac}/manual/set`;
+};
+
+export const manualControl = async (req, res) => {
+    const { deviceId } = req.params;
+    const { solenoidId, state } = req.body; // state akan berupa "ON" or "OFF"
+
+    try {
+        const device = await Devices.findByPk(deviceId);
+        if (!device) return res.status(404).json({ msg: "Alat tidak ditemukan" });
+
+        // Cek otorisasi (user hanya boleh mengontrol alatnya sendiri)
+        if (req.role !== "admin" && device.userId !== req.userId) {
+            return res.status(403).json({ msg: "Akses ditolak" });
+        }
+
+        const topic = createManualTopicFromMac(device.macAddress);
+        if (topic) {
+            const payload = { solenoid: solenoidId, state: state };
+            publishScheduleUpdate(topic, payload); // Menggunakan kembali fungsi publish yang ada
+            res.status(200).json({ msg: `Perintah ${state} terkirim ke solenoid ${solenoidId}` });
+        } else {
+            res.status(400).json({ msg: "Alat tidak memiliki MAC Address." });
+        }
+
+    } catch (error) {
+        res.status(500).json({ msg: error.message });
+    }
+};

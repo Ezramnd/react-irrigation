@@ -1,219 +1,214 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { motion } from 'framer-motion';
-import RealtimeApexChart from "../components/RealtimeApexChart";
 import MainLayout from '../components/MainLayout';
-import { FaThermometerHalf, FaTint, FaSun, FaToggleOn } from 'react-icons/fa';
-import { FiDownload } from 'react-icons/fi';
-import { BsArrowUp, BsArrowDown } from 'react-icons/bs';
+import ClimateDashboard from '../components/ClimateDashboard';
+import SmartIrrigationDashboard from '../components/SmartIrrigationDashboard';
+import { FiHardDrive, FiLoader, FiAlertTriangle } from 'react-icons/fi';
 
-// --- Komponen Ikon Tren (untuk naik/turun) ---
-const TrendIcon = ({ trendType }) => {
-  const isUp = trendType === 'up';
-  return isUp ? (
-    <BsArrowUp className="w-4 h-4 text-green-500" />
-  ) : (
-    <BsArrowDown className="w-4 h-4 text-red-500" />
-  );
-};
-
-// --- Komponen Kartu Statistik (Desain Baru) ---
-const StatCard = ({ icon, title, value, unit, isTextStatus = false }) => {
-  return (
-    <motion.div
-      className="bg-white rounded-2xl shadow-lg p-4 md:p-6 flex items-center justify-between transform transition-all duration-300 hover:-translate-y-1.5"
-      whileHover={{ scale: 1.03 }}
-    >
-      <div>
-        <span className="text-gray-500 text-sm md:text-base font-medium">{title}</span>
-        <div className="flex items-baseline space-x-2">
-         <h2 className={`font-extrabold text-gray-800 my-1 ${isTextStatus ? 'text-xl md:text-2xl' : 'text-2xl md:text-4xl'}`}>{value}</h2>
-          {!isTextStatus && <span className="text-gray-400 text-sm md:text-base font-medium">{unit}</span>}
-        </div>
-        {isTextStatus && (
-          <div className="flex items-center text-green-500">
-             <span className="inline-block h-2 w-2 md:h-3 md:w-3 bg-green-500 rounded-full mr-2"></span>
-            <span className="text-sm md:text-base font-semibold">Berjalan Normal</span>
-          </div>
-        )}
-      </div>
-       <div className="p-3 md:p-4 rounded-full bg-blue-50">
-        <div className="text-blue-600 text-xl md:text-2xl">
-          {icon}
-        </div>
-      </div>
-    </motion.div>
-  );
-};
-
-// --- Komponen Tabel Data Historis ---
-const DataTable = () => {
-  // Data dummy untuk log, diurutkan dari yang terbaru
-  const logData = [
-    { tanggal: '2025-09-02', jam: '11:00', suhu: 28.5, kelembaban: 65, lux: 55000, volume: 150 },
-    { tanggal: '2025-09-02', jam: '10:00', suhu: 28.2, kelembaban: 66, lux: 52000, volume: 0 },
-    { tanggal: '2025-09-02', jam: '09:00', suhu: 27.8, kelembaban: 68, lux: 48000, volume: 150 },
-    { tanggal: '2025-09-01', jam: '17:00', suhu: 29.1, kelembaban: 62, lux: 35000, volume: 0 },
-    { tanggal: '2025-09-01', jam: '16:00', suhu: 29.5, kelembaban: 60, lux: 42000, volume: 120 },
-  ];
-
-  const handleDownloadCSV = () => {
-    const headers = ['Tanggal', 'Jam', 'Suhu (°C)', 'Kelembaban (%)', 'Intensitas Cahaya (Lux)', 'Volume Semprot (mL)'];
-    const rows = logData.map(row =>
-      [row.tanggal, row.jam, row.suhu, row.kelembaban, row.lux, row.volume].join(',')
-    );
-   
-    const csvContent = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-   
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'laporan_greenhouse.csv');
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  return (
-   <div className="bg-white p-4 md:p-6 rounded-2xl shadow-lg">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b pb-4">
-        <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-3 sm:mb-0">Data Green House</h2>
-        <button 
-          onClick={handleDownloadCSV} 
-          className="px-3 py-1.5 md:px-4 md:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold text-xs md:text-sm flex items-center space-x-2">
-          <FiDownload className="h-4 w-4" />
-          <span>Download CSV</span>
-        </button>
-      </div>
-      <div className="overflow-x-auto -mx-4 sm:mx-0">
-        <div className="inline-block min-w-full align-middle">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-3 md:px-6 py-2 md:py-3 text-left text-xs md:text-sm font-medium text-gray-700 uppercase tracking-wider">
-                  Tanggal & Jam
-                </th>
-                <th scope="col" className="px-3 md:px-6 py-2 md:py-3 text-left text-xs md:text-sm font-medium text-gray-700 uppercase tracking-wider">
-                  Suhu
-                </th>
-                <th scope="col" className="px-3 md:px-6 py-2 md:py-3 text-left text-xs md:text-sm font-medium text-gray-700 uppercase tracking-wider">
-                  Kelembaban
-                </th>
-                <th scope="col" className="px-3 md:px-6 py-2 md:py-3 text-left text-xs md:text-sm font-medium text-gray-700 uppercase tracking-wider">
-                  Cahaya (Lux)
-                </th>
-                <th scope="col" className="px-3 md:px-6 py-2 md:py-3 text-left text-xs md:text-sm font-medium text-gray-700 uppercase tracking-wider">
-                  Volume Irigasi
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {logData.map((row, index) => (
-                <tr key={index} className="hover:bg-gray-50">
-                  <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap">
-                    <div className="text-xs md:text-sm font-medium text-gray-900">{row.tanggal}</div>
-                    <div className="text-xs text-gray-400">{row.jam}</div>
-                  </td>
-                  <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-xs md:text-sm">
-                    {row.suhu}°C
-                  </td>
-                  <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-xs md:text-sm">
-                    {row.kelembaban}%
-                  </td>
-                  <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-xs md:text-sm">
-                    {row.lux.toLocaleString('id-ID')}
-                  </td>
-                  <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-xs md:text-sm">
-                    {row.volume} mL
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// --- Komponen Halaman Utama ---
 const DashboardPage = () => {
+    // State untuk menyimpan daftar semua alat
+    const [devices, setDevices] = useState([]);
+    // State untuk menyimpan ID alat yang dipilih dari dropdown
+    const [selectedDeviceId, setSelectedDeviceId] = useState('');
+    // State untuk menyimpan data detail dari alat yang dipilih
+    const [selectedDevice, setSelectedDevice] = useState(null);
+    // State untuk status loading dan error
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(null);
 
- const statsData = [
-    { 
-      title: 'Suhu', 
-      value: '28.5', 
-      unit: '°C', 
-      icon: <FaThermometerHalf size={24} />
-    },
-    { 
-      title: 'Kelembaban', 
-      value: '65', 
-      unit: '%', 
-      icon: <FaTint size={24} />
-    },
-    { 
-      title: 'Intensitas Cahaya', 
-      value: '55.000', 
-      unit: 'Lux', 
-      icon: <FaSun size={24} />
-    },
-    { 
-      title: 'Status Irigasi', 
-      value: 'Aktif', 
-      isTextStatus: true, 
-      icon: <FaToggleOn size={24} />
-    },
-  ];
- 
-  const containerVariants = { 
-    hidden: { opacity: 0 }, 
-    visible: { 
-      opacity: 1, 
-      transition: { staggerChildren: 0.1 } 
-    } 
-  };
+    // useEffect untuk mengambil daftar alat saat komponen dimuat pertama kali
+    useEffect(() => {
+    const fetchDevices = async () => {
+        try {
+           // 1. Ambil token dari local storage (atau tempat Anda menyimpannya)
+            const token = localStorage.getItem('token'); 
 
-  const itemVariants = { 
-    hidden: { y: 20, opacity: 0 }, 
-    visible: { 
-      y: 0, 
-      opacity: 1, 
-      transition: { type: 'spring', stiffness: 100 } 
-    } 
-  };
+            // Jika tidak ada token, jangan lanjutkan
+            if (!token) {
+                setError("Anda tidak terautentikasi. Silakan login kembali.");
+                setIsLoading(false);
+                return;
+            }
 
- return (
-    <MainLayout className="relative flex bg-gray-100 min-h-screen">  
-      <div className="flex-1 flex flex-col">
-        <main className="flex-1 overflow-x-hidden overflow-y-auto p-3 md:p-6">
-          <motion.div variants={containerVariants} initial="hidden" animate="visible">
+            // 2. Buat konfigurasi header dengan token
+            const config = {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            };
+            
+            // 3. Kirim request dengan menyertakan config
+            const response = await axios.get('/alat', config);
+            
+            // 💡 TIPS DEBUG: Lihat struktur asli data dari API
+            console.log('Isi data dari API /alat:', response.data);
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8 mb-6 md:mb-8">
-              {statsData.map((stat, index) => (
-                <motion.div key={index} variants={itemVariants}>
-                  <StatCard {...stat} />
-                </motion.div>
-              ))}
+            // ✅ PERBAIKAN: Cek apakah response.data adalah sebuah array
+            if (Array.isArray(response.data)) {
+                setDevices(response.data);
+                // Jika ada alat, pilih alat pertama secara default
+                if (response.data.length > 0) {
+                    setSelectedDeviceId(response.data[0].id);
+                }
+            } else {
+                // Jika bukan array, mungkin array-nya ada di dalam properti lain?
+                // Contoh jika formatnya { devices: [...] }, Anda bisa gunakan response.data.devices
+                // Untuk sekarang, kita akan anggap ini sebagai error format.
+                console.error("Data yang diterima dari API bukanlah array:", response.data);
+                setError("Gagal memuat daftar alat karena format data salah.");
+                setDevices([]); // Atur ke array kosong untuk mencegah error .map()
+            }
+
+        } catch (err) {
+            setError("Gagal memuat daftar alat. Silakan coba lagi.");
+            console.error("Error fetching devices:", err);
+            setDevices([]); // Pastikan tetap array kosong jika ada error
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    fetchDevices();
+}, []); // Array dependensi kosong berarti hanya dijalankan sekali saat mount
+
+    // useEffect untuk mengambil detail alat setiap kali alat yang dipilih berubah
+    useEffect(() => {
+    // Jangan jalankan jika tidak ada ID alat yang dipilih
+    if (!selectedDeviceId) {
+        setSelectedDevice(null);
+        return;
+    }
+
+    const fetchDeviceDetails = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            // 1. Ambil token dari local storage
+            const token = localStorage.getItem('token');
+            if (!token) {
+                setError("Autentikasi gagal. Silakan login kembali.");
+                setIsLoading(false);
+                return;
+            }
+
+            // 2. Buat konfigurasi header dengan token
+            const config = {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            };
+
+            // 3. Kirim request untuk detail alat DENGAN menyertakan config
+            const response = await axios.get(`/alat/${selectedDeviceId}`, config);
+            setSelectedDevice(response.data);
+
+        } catch (err) {
+            if (err.response && err.response.status === 401) {
+                setError("Sesi Anda berakhir. Gagal memuat detail alat.");
+            } else {
+                setError(`Gagal memuat data untuk alat.`);
+            }
+            console.error("Error fetching device details:", err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    fetchDeviceDetails();
+}, [selectedDeviceId]); // Dijalankan setiap kali selectedDeviceId berubah
+
+    const handleDeviceChange = (e) => {
+        setSelectedDeviceId(e.target.value);
+    };
+
+    // Fungsi untuk merender konten utama berdasarkan state
+    const renderContent = () => {
+        if (isLoading) {
+            return (
+                <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+                    <FiLoader className="animate-spin text-4xl mb-4" />
+                    <p className="font-semibold">Memuat Data...</p>
+                </div>
+            );
+        }
+
+        if (error) {
+            return (
+                 <div className="flex flex-col items-center justify-center h-64 text-red-500 bg-red-50 rounded-lg p-6">
+                    <FiAlertTriangle className="text-4xl mb-4" />
+                    <p className="font-semibold text-center">{error}</p>
+                </div>
+            );
+        }
+
+        if (!selectedDevice) {
+             return (
+                <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+                    <FiHardDrive className="text-4xl mb-4" />
+                    <p className="font-semibold">Pilih alat untuk menampilkan data.</p>
+                </div>
+            );
+        }
+
+        switch (selectedDevice.jenis) {
+            case 'Climate':
+                return <ClimateDashboard />;
+            case 'Smart Irrigation':
+                return <SmartIrrigationDashboard device={selectedDevice} />;
+            default:
+                return (
+                    <div className="flex flex-col items-center justify-center h-64 text-yellow-500">
+                       <FiAlertTriangle className="text-4xl mb-4" />
+                       <p className="font-semibold">Jenis alat '{selectedDevice.jenis}' tidak dikenali.</p>
+                   </div>
+                );
+        }
+    };
+    
+    const containerVariants = { 
+      hidden: { opacity: 0 }, 
+      visible: { 
+        opacity: 1, 
+        transition: { staggerChildren: 0.1 } 
+      } 
+    };
+
+    return (
+        <MainLayout className="relative flex bg-gray-100 min-h-screen">
+            <div className="flex-1 flex flex-col">
+                <main className="flex-1 overflow-x-hidden overflow-y-auto p-3 md:p-6">
+                    {/* Header dengan Dropdown */}
+                    <div className="mb-6 md:mb-8">
+                        <div className="relative max-w-xs">
+                            <FiHardDrive className="absolute top-1/2 left-3 transform -translate-y-1/2 text-gray-400" />
+                            <select
+                                value={selectedDeviceId}
+                                onChange={handleDeviceChange}
+                                disabled={devices.length === 0}
+                                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none font-semibold text-gray-700"
+                            >
+                                {devices.length > 0 ? (
+                                    devices.map((device) => (
+                                        <option key={device.id} value={device.id}>
+                                            {device.nama}
+                                        </option>
+                                    ))
+                                ) : (
+                                    <option>Tidak ada alat</option>
+                                )}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    {/* Konten Dinamis */}
+                    <motion.div variants={containerVariants} initial="hidden" animate="visible">
+                        {renderContent()}
+                    </motion.div>
+                </main>
             </div>
-
-            <motion.div variants={itemVariants} className="mb-6 md:mb-8">
-              <div className="bg-white p-4 md:p-6 rounded-2xl shadow-lg">
-                <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4 border-b pb-4">Grafik Sensor Real-time</h2>
-                <RealtimeApexChart />
-              </div>
-            </motion.div>
-
-            <motion.div variants={itemVariants}>
-              <DataTable />
-            </motion.div>
-
-          </motion.div>
-        </main>
-      </div>
-    </MainLayout>
-  );
+        </MainLayout>
+    );
 };
 
 export default DashboardPage;

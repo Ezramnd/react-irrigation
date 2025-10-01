@@ -1,0 +1,148 @@
+// src/components/ClimateDashboard.jsx
+
+import React from 'react';
+import { motion } from 'framer-motion';
+import RealtimeApexChart from "./RealtimeApexChart";
+import { FaThermometerHalf, FaTint, FaSun, FaToggleOn } from 'react-icons/fa';
+import { FiDownload } from 'react-icons/fi';
+
+// --- Komponen Kartu Statistik (dapat dipindahkan ke file sendiri jika digunakan di banyak tempat) ---
+const StatCard = ({ icon, title, value, unit, isTextStatus = false }) => {
+  return (
+    <motion.div
+      className="bg-white rounded-2xl shadow-lg p-4 md:p-6 flex items-center justify-between transform transition-all duration-300 hover:-translate-y-1.5"
+      whileHover={{ scale: 1.03 }}
+    >
+      <div>
+        <span className="text-gray-500 text-sm md:text-base font-medium">{title}</span>
+        <div className="flex items-baseline space-x-2">
+         <h2 className={`font-extrabold text-gray-800 my-1 ${isTextStatus ? 'text-xl md:text-2xl' : 'text-2xl md:text-4xl'}`}>{value}</h2>
+          {!isTextStatus && <span className="text-gray-400 text-sm md:text-base font-medium">{unit}</span>}
+        </div>
+        {isTextStatus && (
+          <div className="flex items-center text-green-500">
+             <span className="inline-block h-2 w-2 md:h-3 md:w-3 bg-green-500 rounded-full mr-2"></span>
+            <span className="text-sm md:text-base font-semibold">Berjalan Normal</span>
+          </div>
+        )}
+      </div>
+       <div className="p-3 md:p-4 rounded-full bg-blue-50">
+        <div className="text-blue-600 text-xl md:text-2xl">
+          {icon}
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+// --- Komponen Tabel Data Historis (dapat dipindahkan ke file sendiri) ---
+const DataTable = () => {
+  const logData = [
+    { tanggal: '2025-09-02', jam: '11:00', suhu: 28.5, kelembaban: 65, lux: 55000, volume: 150 },
+    { tanggal: '2025-09-02', jam: '10:00', suhu: 28.2, kelembaban: 66, lux: 52000, volume: 0 },
+    { tanggal: '2025-09-02', jam: '09:00', suhu: 27.8, kelembaban: 68, lux: 48000, volume: 150 },
+    { tanggal: '2025-09-01', jam: '17:00', suhu: 29.1, kelembaban: 62, lux: 35000, volume: 0 },
+    { tanggal: '2025-09-01', jam: '16:00', suhu: 29.5, kelembaban: 60, lux: 42000, volume: 120 },
+  ];
+
+  const handleDownloadCSV = () => {
+    const headers = ['Tanggal', 'Jam', 'Suhu (°C)', 'Kelembaban (%)', 'Intensitas Cahaya (Lux)', 'Volume Semprot (mL)'];
+    const rows = logData.map(row =>
+      [row.tanggal, row.jam, row.suhu, row.kelembaban, row.lux, row.volume].join(',')
+    );
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'laporan_greenhouse.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+   <div className="bg-white p-4 md:p-6 rounded-2xl shadow-lg">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b pb-4">
+        <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-3 sm:mb-0">Data Green House</h2>
+        <button 
+          onClick={handleDownloadCSV} 
+          className="px-3 py-1.5 md:px-4 md:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold text-xs md:text-sm flex items-center space-x-2">
+          <FiDownload className="h-4 w-4" />
+          <span>Download CSV</span>
+        </button>
+      </div>
+      <div className="overflow-x-auto -mx-4 sm:mx-0">
+        <div className="inline-block min-w-full align-middle">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="px-3 md:px-6 py-2 md:py-3 text-left text-xs md:text-sm font-medium text-gray-700 uppercase tracking-wider">Tanggal & Jam</th>
+                <th scope="col" className="px-3 md:px-6 py-2 md:py-3 text-left text-xs md:text-sm font-medium text-gray-700 uppercase tracking-wider">Suhu</th>
+                <th scope="col" className="px-3 md:px-6 py-2 md:py-3 text-left text-xs md:text-sm font-medium text-gray-700 uppercase tracking-wider">Kelembaban</th>
+                <th scope="col" className="px-3 md:px-6 py-2 md:py-3 text-left text-xs md:text-sm font-medium text-gray-700 uppercase tracking-wider">Cahaya (Lux)</th>
+                <th scope="col" className="px-3 md:px-6 py-2 md:py-3 text-left text-xs md:text-sm font-medium text-gray-700 uppercase tracking-wider">Volume Irigasi</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {logData.map((row, index) => (
+                <tr key={index} className="hover:bg-gray-50">
+                  <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap"><div className="text-xs md:text-sm font-medium text-gray-900">{row.tanggal}</div><div className="text-xs text-gray-400">{row.jam}</div></td>
+                  <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-xs md:text-sm">{row.suhu}°C</td>
+                  <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-xs md:text-sm">{row.kelembaban}%</td>
+                  <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-xs md:text-sm">{row.lux.toLocaleString('id-ID')}</td>
+                  <td className="px-3 md:px-6 py-2 md:py-4 whitespace-nowrap text-xs md:text-sm">{row.volume} mL</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+const ClimateDashboard = () => {
+    const statsData = [
+        { title: 'Suhu', value: '28.5', unit: '°C', icon: <FaThermometerHalf size={24} /> },
+        { title: 'Kelembaban', value: '65', unit: '%', icon: <FaTint size={24} /> },
+        { title: 'Intensitas Cahaya', value: '55.000', unit: 'Lux', icon: <FaSun size={24} /> },
+        { title: 'Status Irigasi', value: 'Aktif', isTextStatus: true, icon: <FaToggleOn size={24} /> },
+    ];
+
+    const itemVariants = { 
+        hidden: { y: 20, opacity: 0 }, 
+        visible: { 
+            y: 0, 
+            opacity: 1, 
+            transition: { type: 'spring', stiffness: 100 } 
+        } 
+    };
+
+    return (
+        <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8 mb-6 md:mb-8">
+                {statsData.map((stat, index) => (
+                    <motion.div key={index} variants={itemVariants}>
+                        <StatCard {...stat} />
+                    </motion.div>
+                ))}
+            </div>
+
+            <motion.div variants={itemVariants} className="mb-6 md:mb-8">
+                <div className="bg-white p-4 md:p-6 rounded-2xl shadow-lg">
+                    <h2 className="text-lg md:text-xl font-bold text-gray-800 mb-4 border-b pb-4">Grafik Sensor Real-time</h2>
+                    <RealtimeApexChart />
+                </div>
+            </motion.div>
+
+            <motion.div variants={itemVariants}>
+                <DataTable />
+            </motion.div>
+        </>
+    );
+};
+
+export default ClimateDashboard;

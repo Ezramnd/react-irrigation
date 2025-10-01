@@ -2,9 +2,9 @@ import express from "express";
 import { getUsers, Register, Login, Logout, getMe, updateUser, deleteUser } from "../controllers/Users.js";
 import { verifyToken, adminOnly } from "../middleware/AuthUser.js";
 import { refreshToken } from "../controllers/RefreshToken.js";
-import { getDevices, createDevice, updateDevice, deleteDevice } from "../controllers/DeviceController.js";
+import { getDevices, createDevice, updateDevice, deleteDevice, getDeviceById } from "../controllers/DeviceController.js";
 import Devices from "../models/DeviceModel.js";
-import { getDeviceSchedules, createScheduleForDevice, deleteSchedule, updateSchedule, getSchedules} from "../controllers/ScheduleController.js";
+import { getDeviceSchedules, createScheduleForDevice, deleteSchedule, updateSchedule, getSchedules, manualControl} from "../controllers/ScheduleController.js";
 import { forgotPassword, resetPassword } from "../controllers/Users.js";
 
 const router = express.Router();
@@ -30,6 +30,7 @@ router.delete('/users/:id', verifyToken, adminOnly, deleteUser); // <-- Route DE
 // --- Rute Alat ---
 // Logika user/admin sudah ditangani di dalam controller
 router.get('/alat', verifyToken, getDevices); 
+router.get('/alat/:id', verifyToken, getDeviceById);
 // User biasa tetap bisa membuat, mengedit, dan menghapus alat MEREKA SENDIRI
 router.post('/alat', verifyToken, createDevice);
 router.patch('/alat/:id', verifyToken, updateDevice);
@@ -39,6 +40,8 @@ router.delete('/alat/:id', verifyToken, deleteDevice);
 router.get('/alat/:deviceId/jadwal', verifyToken, getDeviceSchedules);
 // Membuat jadwal baru untuk satu alat spesifik
 router.post('/alat/:deviceId/jadwal', verifyToken, createScheduleForDevice);
+// ROUTE BARU UNTUK KONTROL MANUAL
+router.post('/devices/:deviceId/manual', verifyToken, manualControl);
 // Menghapus jadwal (jadwal akan terhapus dari semua alat yang menggunakannya)
 router.delete('/jadwal/:scheduleId', verifyToken, deleteSchedule);
 router.patch('/jadwal/:scheduleId', verifyToken, updateSchedule);

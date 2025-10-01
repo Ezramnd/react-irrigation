@@ -13,6 +13,7 @@ import Devices from "./models/DeviceModel.js";
 import Schedules from "./models/ScheduleModel.js";
 import { setMqttClient, subscribeToDeviceStatus } from './mqttNotifier.js';
 import { initializeRealtimeManager } from './realtimeManager.js';
+import { handleSyncRequest } from "./controllers/ScheduleController.js";
 
 // --- Konfigurasi ---
 const MQTT_BROKER_URL = 'mqtt://localhost';
@@ -62,9 +63,41 @@ setMqttClient(mqttClient); // Hubungkan ke notifier
 // --- PERUBAHAN: Jalankan Manajer Real-time ---
 initializeRealtimeManager(io, mqttClient);
 
+// Pola regex untuk mencocokkan topik permintaan sinkronisasi
+const syncRequestTopicPattern = /^esp32\/alat\/([0-9A-Fa-f:-]+)\/jadwal\/get$/;
+
 mqttClient.on('connect', () => {
-    console.log('✅ Terhubung ke MQTT Broker');
+    // Berlangganan ke topik permintaan sinkronisasi dari SEMUA perangkat
+    const syncTopic = 'esp32/alat/+/jadwal/get';
+    mqttClient.subscribe(syncTopic, (err) => {
+        if (!err) {
+            console.log(`✅ Berhasil subscribe ke topik sinkronisasi: ${syncTopic}`);
+        } else {
+            console.error(`❌ Gagal subscribe ke ${syncTopic}:`, err);
+        }
+    });
 });
+
+mqttClient.on('message', (topic, message) => {
+    // Pesan dari ESP32 biasanya berupa buffer, ubah ke string
+    const topicStr = topic.toString();
+    console.log(`Pesan diterima di topik: ${topicStr}`);
+
+    // Cek apakah topik yang masuk cocok dengan pola topik sinkronisasi
+    const match = topicStr.match(syncRequestTopicPattern);
+    if (match) {
+        // Ambil MAC address dari topik (grup ke-1 dari regex), lalu ganti '-' menjadi ':'
+        const macAddress = match[1].replace(/-/g, ':');
+        
+        // Panggil fungsi handler yang ada di controller Anda
+        handleSyncRequest(macAddress);
+        return; // Hentikan proses jika topik sudah ditangani
+    }
+
+    // Anda bisa menambahkan logika di sini untuk menangani topik lain,
+    // misalnya untuk 'esp32/status/...' yang sudah ada di notifier Anda
+});
+
 
 mqttClient.on('error', (err) => console.error('❌ Error MQTT:', err));
 mqttClient.on('reconnect', () => console.log('🔄 Mencoba rekoneksi MQTT...'));

@@ -16,7 +16,7 @@ const AlatCard = ({ alat, onClick }) => {
     const statusInfo = { active: { text: 'Active', textColor: 'text-green-600', bgColor: 'bg-green-100' }, inactive: { text: 'Inactive', textColor: 'text-red-600', bgColor: 'bg-red-100' }, maintenance: { text: 'Maintenance', textColor: 'text-orange-600', bgColor: 'bg-orange-100' } };
     const currentStatus = statusInfo[status] || { text: 'Unknown', textColor: 'text-gray-600', bgColor: 'bg-gray-100' };
     return (
-        <div layout layoutId={`card-container-${alat.id}`} className="bg-white rounded-2xl shadow-lg overflow-hidden transform hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col min-h-[180px]" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={onClick} >
+        <motion.div layout layoutId={`card-container-${alat.id}`} className="bg-white rounded-2xl shadow-lg overflow-hidden transform hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col min-h-[180px]" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={onClick} >
             <div className="p-6 flex-grow">
                 <div className="flex justify-between items-start">
                     <div>
@@ -33,7 +33,7 @@ const AlatCard = ({ alat, onClick }) => {
                     Lihat Detail →
                 </span>
             </div>
-        </div>
+        </motion.div>
     );
 };
 
@@ -95,7 +95,7 @@ const FormTambahAlat = ({ onClose, onTambahAlat }) => {
     
     return (
         <>
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" variants={backdropVariants} initial="hidden" animate="visible" exit="hidden" onClick={onClose}>
+            <motion.div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" variants={backdropVariants} initial="hidden" animate="visible" exit="hidden" onClick={onClose}>
                 <div className="bg-gradient-to-br from-white to-gray-50 p-8 rounded-3xl shadow-xl border border-gray-100 w-full max-w-lg relative" variants={modalVariants} initial="hidden" animate="visible" exit="exit" onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-between items-center mb-6 border-b pb-4 border-gray-200"><h2 className="text-3xl font-extrabold text-gray-800">Tambahkan Alat Baru</h2><button onClick={onClose} className="p-2 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition-all duration-200 focus:outline-none"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button></div>
                     <form onSubmit={handleSubmit} className="space-y-6">
@@ -172,7 +172,7 @@ const FormTambahAlat = ({ onClose, onTambahAlat }) => {
                         <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 mt-8"><motion.button type="button" onClick={onClose} className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 font-semibold shadow-md">Batal</motion.button><motion.button type="submit" className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 font-semibold shadow-md">Simpan Alat</motion.button></div>
                     </form>
                 </div>
-            </div>
+            </motion.div>
             
             <AnimatePresence>
                 {isScannerOpen && (
@@ -615,19 +615,19 @@ const AlatPage = () => {
             <div className="flex-1 flex flex-col">
                 <div className="flex-1 overflow-x-hidden overflow-y-auto p-6 md:p-8">
                     <LayoutGroup>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8" layout>
+                        <motion.div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8" layout>
                             {isLoading ? (
                                 <p>Loading data...</p>
                             ) : (
                                 <>
                                     {daftarAlat.map((alat) => (<AlatCard key={alat.id} alat={alat} onClick={() => handleLihatDetail(alat)} />))}
-                                    <div onClick={() => setIsFormVisible(true)} className="bg-slate-50 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-slate-300 text-slate-500 hover:border-blue-500 hover:text-blue-500 cursor-pointer transition-all duration-300 min-h-[180px]" whileHover={{ scale: 1.03 }} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}>
+                                    <motion.div onClick={() => setIsFormVisible(true)} className="bg-slate-50 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-slate-300 text-slate-500 hover:border-blue-500 hover:text-blue-500 cursor-pointer transition-all duration-300 min-h-[180px]" whileHover={{ scale: 1.03 }} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}>
                                         <div className="p-4 bg-slate-200 rounded-full mb-3"><svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg></div>
                                         <span className="font-semibold text-lg">Tambahkan Alat</span>
-                                    </div>
+                                    </motion.div>
                                 </>
                             )}
-                        </div>
+                        </motion.div>
                          <AnimatePresence>
                             {selectedAlat && selectedAlat.jenis === 'Smart Irrigation' && (
                                 <ModalKontrolIrigasi alat={selectedAlat} onClose={() => setSelectedAlat(null)} onEdit={handleEdit} />

@@ -10,36 +10,32 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const initializeAuth = async () => {
-            const token = localStorage.getItem('token');
-            if (token) {
-                try {
-                    const decoded = jwtDecode(token);
-                    if (decoded.exp * 1000 > Date.now()) {
-                        // Tidak perlu setAuthToken, interceptor akan menanganinya
-                        setUser({ id: decoded.id, name: decoded.name, email: decoded.email, role: decoded.role });
-                    } else {
-                        // Interceptor response di api.js akan mencoba refresh token secara otomatis
-                        // saat ada API call pertama yang gagal. Kita bisa coba panggil /me untuk memicunya.
-                        try {
-                           const { data } = await api.get('/me');
-                           setUser(data);
-                        } catch (error) {
-                           console.log("Gagal refresh token saat inisialisasi.");
-                           localStorage.removeItem('token');
-                           setUser(null);
-                        }
-                    }
-                } catch (error) {
+   useEffect(() => {
+    const initializeAuth = () => { // Tidak perlu async lagi
+        const token = localStorage.getItem('token');
+        if (token) {
+            try {
+                const decoded = jwtDecode(token);
+                // Cukup periksa apakah token valid secara client-side
+                if (decoded.exp * 1000 > Date.now()) {
+                    // Jika valid, set user dari data di dalam token
+                    setUser({ id: decoded.id, name: decoded.name, email: decoded.email, role: decoded.role });
+                } else {
+                    // Jika kedaluwarsa, cukup hapus. 
+                    // Biarkan interceptor yang bekerja saat ada API call nanti.
                     localStorage.removeItem('token');
                     setUser(null);
                 }
+            } catch (error) {
+                // Jika token tidak valid/rusak
+                localStorage.removeItem('token');
+                setUser(null);
             }
-            setLoading(false);
-        };
-        initializeAuth();
-    }, []);
+        }
+        setLoading(false);
+    };
+    initializeAuth();
+}, []);
 
     const login = (token) => {
         localStorage.setItem('token', token);

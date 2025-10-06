@@ -176,7 +176,8 @@ const createManualTopicFromMac = (macAddress) => {
 
 export const manualControl = async (req, res) => {
     const { deviceId } = req.params;
-    const { solenoidId, state } = req.body; // state akan berupa "ON" or "OFF"
+    // --- PERUBAHAN 1: Baca semua kemungkinan key dari body ---
+    const { solenoidId, target, state } = req.body; 
 
     try {
         const device = await Devices.findByPk(deviceId);
@@ -189,9 +190,26 @@ export const manualControl = async (req, res) => {
 
         const topic = createManualTopicFromMac(device.macAddress);
         if (topic) {
-            const payload = { solenoid: solenoidId, state: state };
-            publishScheduleUpdate(topic, payload); // Menggunakan kembali fungsi publish yang ada
-            res.status(200).json({ msg: `Perintah ${state} terkirim ke solenoid ${solenoidId}` });
+            // --- PERUBAHAN 2: Buat payload secara kondisional ---
+            let payload;
+            
+            if (target && target === 'pump') {
+                // Jika ini perintah untuk pompa
+                payload = { target: target, state: state };
+                
+            } else if (solenoidId) {
+                // Jika ini perintah untuk solenoid
+                payload = { solenoid: solenoidId, state: state };
+
+            } else {
+                // Jika payload tidak valid
+                return res.status(400).json({ msg: "Request body tidak valid." });
+            }
+            
+            publishScheduleUpdate(topic, payload); // Menggunakan payload yang sudah benar
+            
+            res.status(200).json({ msg: `Perintah ${state} berhasil dikirim.` });
+
         } else {
             res.status(400).json({ msg: "Alat tidak memiliki MAC Address." });
         }

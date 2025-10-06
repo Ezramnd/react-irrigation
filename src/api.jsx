@@ -1,12 +1,15 @@
-// src/api.js (VERSI FINAL REVISI)
+// src/api.js (VERSI FINAL YANG DIPERBAIKI)
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'http://localhost:5000',
+    // INI BAGIAN YANG PALING PENTING:
+    // Pastikan ini adalah alamat server backend Anda
+    baseURL: 'http://localhost:5000', 
+    
     withCredentials: true 
 });
 
-// Interceptor ini akan berjalan di SETIAP request
+// Interceptor request Anda sudah benar, tidak perlu diubah.
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('token');
@@ -20,23 +23,26 @@ api.interceptors.request.use(
     }
 );
 
-// Interceptor response untuk refresh token tetap sama
+// Interceptor response Anda juga sudah benar, tidak perlu diubah.
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
-        if (error.response.status === 403 && !originalRequest._retry) {
+        
+        // Perbaikan kecil: Pastikan error.response ada sebelum mengakses status
+        if (error.response && error.response.status === 403 && !originalRequest._retry) {
             originalRequest._retry = true;
             try {
                 const { data } = await api.get('/token');
                 localStorage.setItem('token', data.accessToken);
-                // Axios akan otomatis menggunakan token baru di request berikutnya
-                // karena interceptor request di atas akan mengambilnya dari localStorage
+                // Set header untuk request yang diulang secara manual
+                originalRequest.headers['Authorization'] = `Bearer ${data.accessToken}`;
                 return api(originalRequest);
             } catch (refreshError) {
                 console.error("Sesi berakhir.", refreshError);
                 localStorage.removeItem('token');
-                window.location.href = '/';
+                // Arahkan ke halaman login, bukan root
+                window.location.href = '/'; 
                 return Promise.reject(refreshError);
             }
         }

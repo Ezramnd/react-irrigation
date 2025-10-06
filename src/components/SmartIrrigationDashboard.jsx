@@ -2,14 +2,17 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { FiCpu, FiWifi, FiTerminal, FiClock, FiPower, FiToggleRight } from 'react-icons/fi';
+import { FiCpu, FiWifi, FiTerminal, FiClock, FiPower, FiToggleRight, FiDroplet } from 'react-icons/fi';
 import { FaServer } from 'react-icons/fa';
 import api from '../api';
 
-// Komponen Reusable untuk setiap Switch Selenoid
-const SolenoidSwitch = ({ label, id, isOn, onToggle }) => (
+// Komponen Reusable untuk setiap Switch (bisa untuk solenoid atau pompa)
+const ControlSwitch = ({ label, id, isOn, onToggle, icon }) => (
     <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200">
-        <span className="font-semibold text-sm text-gray-700">{label}</span>
+        <div className="flex items-center">
+            {icon && <span className="mr-2 text-blue-600">{icon}</span>}
+            <span className="font-semibold text-sm text-gray-700">{label}</span>
+        </div>
         <label htmlFor={id} className="inline-flex relative items-center cursor-pointer">
             <input 
                 type="checkbox" 
@@ -22,6 +25,7 @@ const SolenoidSwitch = ({ label, id, isOn, onToggle }) => (
         </label>
     </div>
 );
+
 
 // Komponen untuk menampilkan satu baris informasi
 const InfoRow = ({ icon, label, value }) => (
@@ -50,9 +54,9 @@ const ScheduleTable = ({ schedules }) => (
                 {schedules && schedules.length > 0 ? schedules.map((schedule) => (
                     <tr key={schedule.id} className="hover:bg-gray-50">
                         <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{schedule.tanggalMulai} - {schedule.tanggalSelesai}</td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{schedule.waktu}</td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{schedule.waktu.join(', ')}</td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{schedule.durasi}</td>
-                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{schedule.solenoid}</td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{schedule.solenoid.join(', ')}</td>
                     </tr>
                 )) : (
                     <tr>
@@ -65,45 +69,52 @@ const ScheduleTable = ({ schedules }) => (
 );
 
 const SmartIrrigationDashboard = ({ device }) => {
+    // State untuk semua kontrol manual digabung
     const [solenoidStates, setSolenoidStates] = useState({
-        solenoid1: false, solenoid2: false, solenoid3: false,
-        solenoid4: false, solenoid5: false, solenoid6: false,
+        solenoid1: false, solenoid2: false, /* solenoid3: false, etc */
     });
+    // State terpisah untuk pompa
+    const [pumpState, setPumpState] = useState(false);
 
-    const handleSolenoidToggle = async (solenoidKey) => { // <-- Jadikan async
-        // Ubah UI secara optimis
-        const newState = !solenoidStates[solenoidKey];
-        setSolenoidStates(prevState => ({
-            ...prevState,
-            [solenoidKey]: newState
-        }));
-
+    // --- FUNGSI BARU UNTUK MENGIRIM PERINTAH MANUAL ---
+    const sendManualCommand = async (payload, revertStateCallback) => {
         try {
-            // Ekstrak nomor dari string (misal: "solenoid1" -> 1)
-            const solenoidId = parseInt(solenoidKey.replace('solenoid', ''), 10);
-            const state = newState ? 'ON' : 'OFF';
-
-            // Kirim perintah ke backend
-            await api.post(`/devices/${device.id}/manual`, {
-                solenoidId: solenoidId,
-                state: state
-            },
-                 { // Opsi konfigurasi
-                    withCredentials: true
-                }
-            );
-
-            console.log(`Perintah ${state} untuk solenoid ${solenoidId} berhasil dikirim.`);
-
+            await api.post(`/devices/${device.id}/manual`, payload, { withCredentials: true });
+            console.log(`Perintah manual berhasil dikirim:`, payload);
         } catch (error) {
             console.error("Gagal mengirim perintah manual:", error.response?.data?.msg || error.message);
-            // Jika gagal, kembalikan state UI ke semula
-            setSolenoidStates(prevState => ({
-                ...prevState,
-                [solenoidKey]: !newState
-            }));
+            revertStateCallback(); // Kembalikan state UI jika gagal
             alert("Gagal mengirim perintah. Silakan coba lagi.");
         }
+    };
+
+    // Handler untuk solenoid (tidak banyak berubah)
+    const handleSolenoidToggle = (solenoidKey) => {
+        const newState = !solenoidStates[solenoidKey];
+        const solenoidId = parseInt(solenoidKey.replace('solenoid', ''), 10);
+        
+        // Update UI optimis
+        setSolenoidStates(prevState => ({ ...prevState, [solenoidKey]: newState }));
+
+        // Kirim perintah
+        sendManualCommand(
+            { solenoidId: solenoidId, state: newState ? 'ON' : 'OFF' },
+            () => setSolenoidStates(prevState => ({ ...prevState, [solenoidKey]: !newState }))
+        );
+    };
+
+    // --- HANDLER BARU KHUSUS UNTUK POMPA ---
+    const handlePumpToggle = () => {
+        const newState = !pumpState;
+
+        // Update UI optimis
+        setPumpState(newState);
+
+        // Kirim perintah dengan payload untuk pompa
+        sendManualCommand(
+            { target: 'pump', state: newState ? 'ON' : 'OFF' },
+            () => setPumpState(!newState) // Fungsi untuk mengembalikan state jika gagal
+        );
     };
 
     const itemVariants = {
@@ -116,11 +127,9 @@ const SmartIrrigationDashboard = ({ device }) => {
         ssid: device.ssid || 'HomeWiFi_2.4Ghz',
     };
     
-    // GANTI container utama dari 'grid' menjadi 'flex flex-col' untuk layout vertikal
     return (
         <div className="flex flex-col gap-6 md:gap-8">
-
-            {/* 1. Informasi Alat (Paling Atas) */}
+            {/* 1. Informasi Alat */}
             <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl shadow-lg">
                 <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-3">Informasi Alat</h3>
                 <div className="space-y-2">
@@ -141,14 +150,24 @@ const SmartIrrigationDashboard = ({ device }) => {
                 </div>
             </motion.div>
 
-            {/* 2. Kontrol Manual (Di Tengah) */}
+            {/* 2. Kontrol Manual */}
              <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl shadow-lg">
                 <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-3 flex items-center">
                     <FiToggleRight className="mr-2" /> Kontrol Manual
                 </h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {/* --- TAMBAHAN: Tombol Manual untuk Pompa --- */}
+                    <ControlSwitch 
+                        key="pump"
+                        id="pump"
+                        label="Pompa Air"
+                        isOn={pumpState}
+                        onToggle={handlePumpToggle}
+                        icon={<FiDroplet size={18} />}
+                    />
+                    {/* Render semua tombol solenoid */}
                     {Object.keys(solenoidStates).map((key, index) => (
-                        <SolenoidSwitch 
+                        <ControlSwitch 
                             key={key}
                             id={key}
                             label={`Selenoid ${index + 1}`}
@@ -159,14 +178,13 @@ const SmartIrrigationDashboard = ({ device }) => {
                 </div>
             </motion.div>
 
-            {/* 3. Jadwal Penyiraman (Paling Bawah) */}
+            {/* 3. Jadwal Penyiraman */}
             <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl shadow-lg">
                 <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-3 flex items-center">
                     <FiClock className="mr-2" /> Jadwal Penyiraman
                 </h3>
                 <ScheduleTable schedules={device.schedules} />
             </motion.div>
-
         </div>
     );
 };

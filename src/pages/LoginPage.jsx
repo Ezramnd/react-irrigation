@@ -41,7 +41,6 @@ const LoginPage = () => {
              // --- 3. GUNAKAN FUNGSI LOGIN DARI CONTEXT ---
             login(response.data.accessToken); 
             // ----------------------------------------
-            localStorage.setItem('token', response.data.accessToken);
             setTimeout(() => navigate('/dashboard'), 500);
         } catch (error) {
             console.error('Login failed:', error);

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "start:backend": "npm start --prefix ./backend",
-    "dev:all": "concurrently \"npm run dev\" \"npm run start:backend\" \"mosquitto -c mosquitto.conf -v\"",
+    "mosquitto": "mosquitto -c ./mosquitto/mosquitto.conf -v",
+    "dev:all": "concurrently \"npm run dev\" \"npm run mosquitto\" \"npm run start:backend\" ",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"

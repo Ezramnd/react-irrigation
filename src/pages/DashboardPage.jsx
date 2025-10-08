@@ -39,7 +39,7 @@ const DashboardPage = () => {
             };
             
             // 3. Kirim request dengan menyertakan config
-            const response = await axios.get('/alat', config);
+            const response = await axios.get('/api/alat', config);
             
             // 💡 TIPS DEBUG: Lihat struktur asli data dari API
             console.log('Isi data dari API /alat:', response.data);
@@ -100,7 +100,7 @@ const DashboardPage = () => {
             };
 
             // 3. Kirim request untuk detail alat DENGAN menyertakan config
-            const response = await axios.get(`/alat/${selectedDeviceId}`, config);
+            const response = await axios.get(`/api/alat/${selectedDeviceId}`, config);
             setSelectedDevice(response.data);
 
         } catch (err) {

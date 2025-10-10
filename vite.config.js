@@ -9,10 +9,11 @@ export default defineConfig({
     tailwindcss(),
   ],
   server: {
+  host: true,
   proxy: {
       // Semua permintaan yang dimulai dengan /api akan diteruskan ke backend
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://192.168.1.13:5000',
         changeOrigin: true, // Diperlukan agar proxy berjalan dengan baik
         rewrite: (path) => path.replace(/^\/api/, ''), // Hapus /api sebelum dikirim ke backend
       }

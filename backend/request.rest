@@ -1,8 +1,8 @@
-GET http://localhost:5000/users
+GET http://192.168.1.13:5000/users
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZW1haWwiOiJqb2huQGV4YW1wbGUuY29tIiwiaWF0IjoxNzU2NzM4OTEzLCJleHAiOjE3NTY3Mzg5MzN9.17XSdoUVwLEzweBuYY7_17aUtIUpVoM3263_dIMKQyk
 
 ### Register User Baru (Sebagai Admin)
-POST http://localhost:5000/users
+POST http://192.168.1.13:5000/users
 Content-Type: application/json
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwibmFtZSI6IkFkbWluIiwiZW1haWwiOiJhZG1pbkBjb250b2guY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzU3NTQxMDU5LCJleHAiOjE3NTc1NDQ2NTl9.abcdef123456
 
@@ -15,7 +15,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwibmFtZSI6I
 }
 
 ### Login User
-POST http://localhost:5000/login
+POST http://192.168.1.13:5000/login
 Content-Type: application/json
 
 {
@@ -25,15 +25,15 @@ Content-Type: application/json
 
 
 ###
-GET http://localhost:5000/token
+GET http://192.168.1.13:5000/token
 
 ###
 
-DELETE http://localhost:5000/logout
+DELETE http://192.168.1.13:5000/logout
 
 
 ### Register Alat
-POST http://localhost:5000/alat
+POST http://192.168.1.13:5000/alat
 Content-Type: application/json
 
 {

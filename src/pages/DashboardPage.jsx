@@ -17,6 +17,9 @@ const DashboardPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    const [climateSchedules, setClimateSchedules] = useState(null);
+    const [climateSettings, setClimateSettings] = useState(null);
+    
     // useEffect untuk mengambil daftar alat saat komponen dimuat pertama kali
     useEffect(() => {
     const fetchDevices = async () => {
@@ -77,6 +80,8 @@ const DashboardPage = () => {
     // Jangan jalankan jika tidak ada ID alat yang dipilih
     if (!selectedDeviceId) {
         setSelectedDevice(null);
+        setClimateSchedules(null);
+        setClimateSettings(null);
         return;
     }
 
@@ -101,7 +106,38 @@ const DashboardPage = () => {
 
             // 3. Kirim request untuk detail alat DENGAN menyertakan config
             const response = await axios.get(`/api/alat/${selectedDeviceId}`, config);
+            const deviceData = response.data;
             setSelectedDevice(response.data);
+
+            if (deviceData.jenis === 'Climate') {
+                    // Gunakan 'config' yang sama dengan yang di atas
+                    
+                    // Ambil Jadwal Climate
+                    const schedulesResponse = await axios.get(
+                        `/api/alat/${selectedDeviceId}/climate-jadwal`, 
+                        config // <-- Pakai config yang sudah ada
+                    );
+                    setClimateSchedules(schedulesResponse.data);
+
+                    // Ambil Settings Climate
+                    const settingsResponse = await axios.get(
+                        `/api/alat/${selectedDeviceId}/climate-settings`,
+                        config // <-- Pakai config yang sudah ada
+                    );
+                    
+                    if (settingsResponse.data) {
+                        // Terjemahkan nama properti agar konsisten
+                        const formattedSettings = {
+                            kipas1_min: settingsResponse.data.minSuhuKipas1,
+                            kipas1_max: settingsResponse.data.maxSuhuKipas1,
+                            kipas2_min: settingsResponse.data.minSuhuKipas2,
+                            kipas2_max: settingsResponse.data.maxSuhuKipas2
+                        };
+                        setClimateSettings(formattedSettings);
+                    } else {
+                        setClimateSettings(null); // Atau set ke default
+                    }
+                }
 
         } catch (err) {
             if (err.response && err.response.status === 401) {
@@ -153,7 +189,11 @@ const DashboardPage = () => {
 
         switch (selectedDevice.jenis) {
             case 'Climate':
-                return <ClimateDashboard />;
+                return <ClimateDashboard 
+                    deviceId={selectedDeviceId}
+                    initialSchedules={climateSchedules} // <-- TAMBAH: Berikan jadwal
+                    initialSettings={climateSettings}  // <-- TAMBAH: Berikan settings
+                />;
             case 'Smart Irrigation':
                 return <SmartIrrigationDashboard device={selectedDevice} />;
             default:

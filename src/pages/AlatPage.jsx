@@ -102,30 +102,7 @@ const FormTambahAlat = ({ onClose, onTambahAlat }) => {
                         <div><label className="block text-sm font-semibold text-gray-700 mb-1">Nama Alat</label><input required type="text" value={namaAlat} onChange={(e) => setNamaAlat(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Masukkan nama alat" /></div>
                         <div className="relative"><label className="block text-sm font-semibold text-gray-700 mb-1">Jenis Alat</label><select value={jenisAlat} onChange={(e) => setJenisAlat(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 appearance-none pr-8">{jenisOptions.map(option => (<option key={option} value={option}>{option}</option> ))}</select><div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pt-6 px-4 text-gray-700"><svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg></div></div>
                         <div><label className="block text-sm font-semibold text-gray-700 mb-1">Lokasi Alat</label><input required type="text" value={lokasiAlat} onChange={(e) => setLokasiAlat(e.target.value)} className="w-full p-3 border border-gray-200 rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 placeholder-italic" placeholder="Sukawening, Dramaga" /></div>
-                        
-                        {/* MAC Address Field with Scan Button */}
-                        {/* <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-1">
-                                MAC Address Perangkat
-                            </label>
-                            <div className="flex flex-col space-y-2">
-                                <input
-                                type="text"
-                                value={macAddress}
-                                readOnly // <-- Tambahkan properti ini untuk membuatnya read-only
-                                className="w-full p-3 border border-gray-200 rounded-xl bg-gray-100 text-gray-600 font-mono cursor-default focus:outline-none" // Style disesuaikan agar terlihat non-aktif
-                                placeholder="Pindai untuk mengisi..." // Placeholder diubah karena tidak bisa diketik manual
-                            />
-                                <button
-                                    type="button"
-                                    onClick={() => setIsScannerOpen(true)}
-                                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors duration-300 shadow-sm"
-                                    aria-label="Pindai QR Code untuk MAC Address"
-                                >
-                                    <FaQrcode className="h-5 w-5" />
-                                    <span>Pindai Alat</span>
-                                </button> */}
-                                <div>
+                        <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-1">
                                 MAC Address Perangkat
                             </label>
@@ -186,129 +163,400 @@ const FormTambahAlat = ({ onClose, onTambahAlat }) => {
     );
 };
 
+// Jadwal Climate
+const ModalFormJadwalClimate = ({ onSave, onClose, jadwalToEdit }) => {
+    
+    // 1. STATE: 'solenoid' diubah menjadi 'fans'
+    const [jadwal, setJadwal] = useState({ 
+        nama: '', 
+        tanggalMulai: '', 
+        tanggalSelesai: '', 
+        waktu: ['08:00'], 
+        durasi: 15, 
+        fans: [] // <- Perubahan di sini
+    });
+
+    useEffect(() => { 
+        if (jadwalToEdit) { 
+            // Saat mengedit, pastikan data 'fans' ada, atau berikan default array kosong
+            setJadwal({ 
+                ...jadwal, 
+                ...jadwalToEdit, 
+                fans: jadwalToEdit.fans || [] 
+            }); 
+        } 
+    }, [jadwalToEdit]);
+
+    // --- Handler Waktu (Sama seperti aslinya) ---
+    const handleWaktuChange = (index, value) => { 
+        const newWaktu = [...jadwal.waktu]; 
+        newWaktu[index] = value; 
+        setJadwal(prev => ({ ...prev, waktu: newWaktu })); 
+    };
+    const tambahWaktu = () => setJadwal(prev => ({ ...prev, waktu: [...prev.waktu, '12:00'] }));
+    const hapusWaktu = (index) => setJadwal(prev => ({ ...prev, waktu: jadwal.waktu.filter((_, i) => i !== index) }));
+
+    // --- 2. LOGIC: Diubah untuk 'fans' ---
+    const handleFanToggle = (id) => { 
+        setJadwal(prev => ({ 
+            ...prev, 
+            fans: prev.fans.includes(id) 
+                ? prev.fans.filter(fId => fId !== id) // Hapus kipas
+                : [...prev.fans, id] // Tambah kipas
+        })); 
+    };
+
+    const handlePilihSemuaFans = () => { 
+        const semuaFans = [1, 2]; // Hanya ada Kipas 1 dan 2
+        if (jadwal.fans.length === semuaFans.length) { 
+            setJadwal(prev => ({ ...prev, fans: [] })); // Kosongkan
+        } else { 
+            setJadwal(prev => ({ ...prev, fans: semuaFans })); // Isi semua
+        } 
+    };
+
+    // --- 3. VALIDATION: Diubah untuk 'fans' ---
+    const handleSave = (e) => { 
+        e.preventDefault(); 
+        
+        // Validasi
+        if (!jadwal.tanggalMulai || !jadwal.tanggalSelesai || jadwal.waktu.some(w => !w) || jadwal.durasi <= 0 || jadwal.fans.length === 0) { 
+            toast.error('Harap isi semua field yang wajib (termasuk minimal 1 kipas)!'); 
+            return; 
+        } 
+        
+        // Kirim data jadwal ke parent (ModalKontrolClimate)
+        onSave(jadwal); 
+        onClose(); 
+    };
+    
+    // --- 4. ANIMATION: Memperbaiki div -> motion.div ---
+    const modalVariants = { 
+        hidden: { opacity: 0, y: -30 }, 
+        visible: { opacity: 1, y: 0, transition: { duration: 0.2 } } 
+    };
+
+    return (
+        // Latar belakang modal
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4" onClick={onClose}>
+            
+            {/* 4. Menggunakan motion.div agar animasi 'variants' berfungsi */}
+            <motion.div 
+                variants={modalVariants} 
+                initial="hidden" 
+                animate="visible" 
+                exit="hidden" 
+                className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-2xl" 
+                onClick={e => e.stopPropagation()}
+            >
+                <h2 className="text-xl font-bold mb-4">{jadwalToEdit ? 'Edit Jadwal Climate' : 'Tambah Jadwal Climate'}</h2>
+                <form onSubmit={handleSave} className="space-y-4">
+                    
+                    {/* Nama Jadwal (Opsional) */}
+                    <div><label className="block text-sm font-medium">Nama Jadwal (Opsional)</label><input type="text" value={jadwal.nama} onChange={e => setJadwal(prev => ({ ...prev, nama: e.target.value }))} placeholder="cth: Pendinginan Siang Hari" className="mt-1 w-full p-2 border rounded-md"/></div>
+                    
+                    {/* Tanggal Mulai & Selesai */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label className="block text-sm font-medium">Tanggal Mulai <span className="text-red-500">*</span></label><input required type="date" value={jadwal.tanggalMulai} onChange={e => setJadwal(prev => ({ ...prev, tanggalMulai: e.target.value }))} className="mt-1 w-full p-2 border rounded-md"/></div>
+                        <div><label className="block text-sm font-medium">Tanggal Selesai <span className="text-red-500">*</span></label><input required type="date" value={jadwal.tanggalSelesai} onChange={e => setJadwal(prev => ({ ...prev, tanggalSelesai: e.target.value }))} className="mt-1 w-full p-2 border rounded-md"/></div>
+                    </div>
+                    
+                    {/* Waktu Aktivasi */}
+                    <div><label className="block text-sm font-medium">Waktu Aktivasi Kipas <span className="text-red-500">*</span></label>{jadwal.waktu.map((w, index) => (<div key={index} className="flex items-center gap-2 mt-2"><input required type="time" value={w} onChange={e => handleWaktuChange(index, e.target.value)} className="w-full p-2 border rounded-md"/>{jadwal.waktu.length > 1 && <button type="button" onClick={() => hapusWaktu(index)} className="p-2 bg-red-100 text-red-600 rounded-full">✕</button>}</div>))}<button type="button" onClick={tambahWaktu} className="mt-2 text-sm text-green-600 font-semibold">+ Tambah Waktu</button></div>
+                    
+                    {/* Durasi */}
+                    <div><label className="block text-sm font-medium">Durasi Menyala (Menit) <span className="text-red-500">*</span></label><input required type="number" value={jadwal.durasi} onChange={e => setJadwal(prev => ({ ...prev, durasi: parseInt(e.target.value) || 0 }))} min="1" className="mt-1 w-full p-2 border rounded-md"/></div>
+                    
+                    {/* --- 5. JSX: Diubah untuk 'fans' --- */}
+                    <div>
+                        <label className="block text-sm font-medium">Pilih Kipas <span className="text-red-500">*</span></label>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                            
+                            {/* Hanya Kipas 1 dan 2 */}
+                            {[1, 2].map(id => (
+                                <button 
+                                    type="button" 
+                                    key={id} 
+                                    onClick={() => handleFanToggle(id)} 
+                                    className={`px-3 py-1 rounded-full ${jadwal.fans.includes(id) ? 'bg-green-600 text-white' : 'bg-gray-200'}`}
+                                >
+                                    Kipas {id}
+                                </button>
+                            ))}
+                            
+                            <button 
+                                type="button" 
+                                onClick={handlePilihSemuaFans} 
+                                className="px-3 py-1 rounded-full bg-green-100 text-green-800 font-semibold"
+                            >
+                                Pilih Semua
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Tombol Simpan/Batal */}
+                    <div className="flex justify-end gap-3 pt-4 border-t mt-6"><button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 rounded-lg">Batal</button><button type="submit" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Simpan</button></div>
+                </form>
+            </motion.div>
+        </div>
+    );
+};
+
+// CLIMATE
 const ModalKontrolClimate = ({ alat, onClose, onEdit }) => {
-    // State untuk menyimpan pengaturan suhu
-    const [settings, setSettings] = useState({ minSuhu: 25, maxSuhu: 30 });
-    const [isLoading, setIsLoading] = useState(true);
+    
+    const [settings, setSettings] = useState({
+        minSuhuKipas1: 28, // Suhu Kipas 1 OFF
+        maxSuhuKipas1: 30, // Suhu Kipas 1 ON
+        minSuhuKipas2: 33, // Suhu Kipas 2 OFF
+        maxSuhuKipas2: 35  // Suhu Kipas 2 ON
+    });
+    const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
-    // State untuk kontrol manual
-    const [kipas1, setKipas1] = useState(false);
-    const [kipas2, setKipas2] = useState(false);
-    const [heater, setHeater] = useState(false);
+    // State untuk Pengaturan Jadwal (Kolom Kanan)
+    const [daftarJadwal, setDaftarJadwal] = useState([]);
+    const [isLoadingJadwal, setIsLoadingJadwal] = useState(true);
+    const [isFormJadwalVisible, setIsFormJadwalVisible] = useState(false);
+    const [jadwalToEdit, setJadwalToEdit] = useState(null);
 
-    // TODO: Di masa depan, ambil data awal dari backend
     useEffect(() => {
-        // const fetchClimateSettings = async () => {
-        //     try {
-        //         const response = await api.get(`/alat/${alat.id}/climate`);
-        //         setSettings(response.data);
-        //     } catch (error) { toast.error("Gagal memuat pengaturan climate."); }
-        //     finally { setIsLoading(false); }
-        // };
-        // fetchClimateSettings();
-        setIsLoading(false); // Hapus ini jika sudah terhubung ke API
+        const fetchSettings = async () => {
+            setIsLoadingSettings(true);
+            try {
+                const response = await api.get(`/alat/${alat.id}/climate-settings`);
+                if (response.data) {
+                    setSettings(response.data);
+                }
+                // await new Promise(res => setTimeout(res, 300));
+            } catch (error) { toast.error("Gagal memuat pengaturan treshold."); }
+            finally { setIsLoadingSettings(false); }
+        };
+
+        // --- Memuat jadwal dari API ---
+        const fetchJadwal = async () => {
+            if (!alat.id) return;
+            setIsLoadingJadwal(true);
+            try {
+                // Memanggil API backend yang baru kita buat
+                const response = await api.get(`/alat/${alat.id}/climate-jadwal`);
+                setDaftarJadwal(response.data);
+                
+            } catch { 
+                toast.error("Gagal memuat jadwal climate."); 
+            }
+            finally { 
+                setIsLoadingJadwal(false); 
+            }
+        };
+
+        fetchSettings();
+        fetchJadwal();
     }, [alat.id]);
 
     const handleSaveSettings = async () => {
+        if (settings.minSuhuKipas1 >= settings.maxSuhuKipas1) {
+            toast.error("Pengaturan Kipas 1 tidak valid: Suhu OFF harus lebih rendah dari suhu ON.");
+            return;
+        }
+        if (settings.minSuhuKipas2 >= settings.maxSuhuKipas2) {
+            toast.error("Pengaturan Kipas 2 tidak valid: Suhu OFF harus lebih rendah dari suhu ON.");
+            return;
+        }
+
         toast.promise(
-            api.patch(`/alat/${alat.id}/climate`, settings),
+            api.patch(`/alat/${alat.id}/climate-settings`, settings),
+            // new Promise(res => setTimeout(res, 1000)), // Masih simulasi
             {
-                loading: 'Menyimpan pengaturan...',
-                success: 'Pengaturan berhasil disimpan!',
-                error: 'Gagal menyimpan pengaturan.',
+                loading: 'Menyimpan pengaturan treshold...',
+                success: 'Pengaturan treshold berhasil disimpan!',
+                error: 'Gagal menyimpan pengaturan treshold.',
             }
         );
     };
+
+    // Handler untuk membuka modal form jadwal (Sudah benar)
+    const handleTambahJadwal = () => {
+        setJadwalToEdit(null);
+        setIsFormJadwalVisible(true);
+    };
+
+    const handleEditJadwal = (jadwal) => {
+        setJadwalToEdit(jadwal);
+        setIsFormJadwalVisible(true);
+    };
+
+    // --- Handler untuk menyimpan/update jadwal ---
+    const handleSimpanJadwal = async (jadwalBaru) => {
+        if (jadwalBaru.id) {
+            // Logika UPDATE (Patch)
+            try {
+                // Mengirim data ke API
+                const response = await api.patch(`/climate-jadwal/${jadwalBaru.id}`, jadwalBaru);
+                // Memperbarui state frontend
+                setDaftarJadwal(prev => 
+                    prev.map(j => j.id === jadwalBaru.id ? response.data : j)
+                );
+                toast.success("Jadwal climate berhasil diperbarui!");
+            } catch (error) { toast.error("Gagal memperbarui jadwal climate."); }
+        } else {
+            // Logika CREATE (Post)
+            try {
+                // Mengirim data ke API
+                const response = await api.post(`/alat/${alat.id}/climate-jadwal`, jadwalBaru);
+                // Memperbarui state frontend
+                setDaftarJadwal(prev => [...prev, response.data]);
+                toast.success("Jadwal climate baru berhasil disimpan!");
+            } catch (error) { toast.error("Gagal menyimpan jadwal climate baru."); }
+        }
+    };
     
-    // TODO: Hubungkan fungsi ini ke backend via MQTT/Socket.IO
-    const handleManualControl = (perangkat, status) => {
-        console.log(`Perintah manual: ${perangkat} -> ${status ? 'ON' : 'OFF'}`);
-        // socket.emit('climate-command', { deviceId: alat.id, perangkat, status });
+    // --- Handler untuk menghapus jadwal ---
+    const handleHapusJadwal = async (scheduleId) => {
+        if (window.confirm('Anda yakin ingin menghapus jadwal ini?')) {
+            try {
+                // Menghapus data via API
+                await api.delete(`/climate-jadwal/${scheduleId}`);
+                // Menghapus data dari state frontend
+                setDaftarJadwal(prev => prev.filter(j => j.id !== scheduleId));
+                toast.success('Jadwal berhasil dihapus!');
+            } catch (error) { toast.error("Gagal menghapus jadwal."); }
+        }
     };
 
 
-     return (
-        <div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div layoutId={`card-container-${alat.id}`} className="bg-gray-100 w-full h-full max-w-4xl rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-                <div className="flex-shrink-0 flex justify-between items-center border-b p-6 bg-white">
-                    <div>
-                        <h2 className="text-2xl font-bold text-gray-800">Kontrol Iklim: {alat.nama}</h2>
-                        <p className="text-gray-500">{alat.lokasi}</p>
+    return (
+        <>
+            <div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div layoutId={`card-container-${alat.id}`} className="bg-gray-100 w-full h-full max-w-4xl rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+                    <div className="flex-shrink-0 flex justify-between items-center border-b p-6 bg-white">
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-800">Kontrol Iklim: {alat.nama}</h2>
+                            <p className="text-gray-500">{alat.lokasi}</p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <button onClick={() => onEdit(alat)} className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold">Edit Info</button>
+                            <button onClick={onClose} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+                        </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                        <button onClick={() => onEdit(alat)} className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold">Edit Info</button>
-                        <button onClick={onClose} className="p-2 rounded-full bg-gray-200 hover:bg-gray-300"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
-                    </div>
-                </div>
-                
-                <div className="flex-grow p-6 overflow-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Kolom Kiri: Pengaturan Otomatis */}
-                    <div className="bg-white p-6 rounded-xl shadow-md flex flex-col">
-                        <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-4">Pengaturan Otomatis</h3>
-                        {isLoading ? <p>Memuat...</p> : (
-                            <div className="space-y-6 flex-grow flex flex-col justify-between">
-                                <div className="space-y-6">
-                                    {/* Slider Suhu Minimal */}
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Suhu Minimal (Kipas & Heater OFF)</label>
-                                        <div className="flex items-center gap-4">
-                                            <FaThermometerHalf className="text-blue-500" />
-                                            <input type="range" min="15" max="40" value={settings.minSuhu} onChange={(e) => setSettings(s => ({...s, minSuhu: Number(e.target.value)}))} className="w-full" />
-                                            <span className="font-bold text-blue-600 bg-blue-100 px-3 py-1 rounded-md">{settings.minSuhu}°C</span>
+                    
+                    <div className="flex-grow p-6 overflow-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* --- Pengaturan Otomatis (Treshold) --- */}
+                        <div className="bg-white p-6 rounded-xl shadow-md flex flex-col">
+                            <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-4">Pengaturan Otomatis (Treshold)</h3>
+                            {isLoadingSettings ? <p>Memuat...</p> : (
+                                <div className="space-y-6 flex-grow flex flex-col justify-between">
+                                    <div className="space-y-6">
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">Suhu Minimal (Kipas 1 OFF)</label>
+                                            <div className="flex items-center gap-4">
+                                                <FaThermometerHalf className="text-blue-500" />
+                                                <input 
+                                                    type="range" min="15" max="40" 
+                                                    value={settings.minSuhuKipas1} 
+                                                    onChange={(e) => setSettings(s => ({...s, minSuhuKipas1: Number(e.target.value)}))} 
+                                                    className="w-full" 
+                                                />
+                                                <span className="font-bold text-blue-600 bg-blue-100 px-3 py-1 rounded-md">{settings.minSuhuKipas1}°C</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                    {/* Slider Suhu Maksimal */}
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Suhu Maksimal (Kipas ON)</label>
-                                        <div className="flex items-center gap-4">
-                                            <FaThermometerHalf className="text-red-500" />
-                                            <input type="range" min="15" max="40" value={settings.maxSuhu} onChange={(e) => setSettings(s => ({...s, maxSuhu: Number(e.target.value)}))} className="w-full" />
-                                            <span className="font-bold text-red-600 bg-red-100 px-3 py-1 rounded-md">{settings.maxSuhu}°C</span>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">Suhu Maksimal (Kipas 1 ON)</label>
+                                            <div className="flex items-center gap-4">
+                                                <FaThermometerHalf className="text-red-500" />
+                                                <input 
+                                                    type="range" min="15" max="40" 
+                                                    value={settings.maxSuhuKipas1} 
+                                                    onChange={(e) => setSettings(s => ({...s, maxSuhuKipas1: Number(e.target.value)}))} 
+                                                    className="w-full" 
+                                                />
+                                                <span className="font-bold text-red-600 bg-red-100 px-3 py-1 rounded-md">{settings.maxSuhuKipas1}°C</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                                <button onClick={handleSaveSettings} className="w-full py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700">Simpan Pengaturan</button>
-                            </div>
-                        )}
-                    </div>
 
-                    {/* Kolom Kanan: Kontrol Manual */}
-                    <div className="bg-white p-6 rounded-xl shadow-md">
-                        <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-4">Kontrol Manual</h3>
-                        <div className="space-y-4">
-                            {/* Toggle Kipas 1 */}
-                            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                <div className="flex items-center gap-3">
-                                    <FaFan className="text-gray-600" />
-                                    <span className="font-semibold text-gray-800">Kipas 1</span>
+                                        <hr className="border-gray-300 my-2" />
+
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">Suhu Minimal (Kipas 2 OFF)</label>
+                                            <div className="flex items-center gap-4">
+                                                <FaThermometerHalf className="text-blue-500" />
+                                                <input 
+                                                    type="range" min="15" max="40" 
+                                                    value={settings.minSuhuKipas2} 
+                                                    onChange={(e) => setSettings(s => ({...s, minSuhuKipas2: Number(e.target.value)}))} 
+                                                    className="w-full" 
+                                                />
+                                                <span className="font-bold text-blue-600 bg-blue-100 px-3 py-1 rounded-md">{settings.minSuhuKipas2}°C</span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">Suhu Maksimal (Kipas 2 ON)</label>
+                                            <div className="flex items-center gap-4">
+                                                <FaThermometerHalf className="text-red-500" />
+                                                <input 
+                                                    type="range" min="15" max="40" 
+                                                    value={settings.maxSuhuKipas2} 
+                                                    onChange={(e) => setSettings(s => ({...s, maxSuhuKipas2: Number(e.target.value)}))} 
+                                                    className="w-full" 
+                                                />
+                                                <span className="font-bold text-red-600 bg-red-100 px-3 py-1 rounded-md">{settings.maxSuhuKipas2}°C</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button onClick={handleSaveSettings} className="w-full py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700">Simpan Pengaturan</button>
                                 </div>
-                                <label className="relative inline-flex items-center cursor-pointer"><input type="checkbox" checked={kipas1} onChange={(e) => { setKipas1(e.target.checked); handleManualControl('kipas1', e.target.checked); }} className="sr-only peer" /><div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div></label>
+                            )}
+                        </div>
+
+                        
+
+                        {/* --- Pengaturan Jadwal Otomatis --- */}
+                        <div className="bg-white p-6 rounded-xl shadow-md flex flex-col">
+                            <div className="flex justify-between items-center mb-4 border-b pb-4">
+                                <h3 className="text-xl font-bold text-gray-800">Jadwal Otomatis</h3>
+                                <button onClick={handleTambahJadwal} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold">+ Tambah Jadwal</button>
                             </div>
-                            {/* Toggle Kipas 2 */}
-                            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                <div className="flex items-center gap-3">
-                                    <FaFan className="text-gray-600" />
-                                    <span className="font-semibold text-gray-800">Kipas 2</span>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer"><input type="checkbox" checked={kipas2} onChange={(e) => { setKipas2(e.target.checked); handleManualControl('kipas2', e.target.checked); }} className="sr-only peer" /><div className="w-11 h-6 bg-gray-200 rounded-full peer ..."></div></label>
-                            </div>
-                            {/* Toggle Heater */}
-                            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                                <div className="flex items-center gap-3">
-                                    <FaPowerOff className="text-gray-600" />
-                                    <span className="font-semibold text-gray-800">Heater</span>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer"><input type="checkbox" checked={heater} onChange={(e) => { setHeater(e.target.checked); handleManualControl('heater', e.target.checked); }} className="sr-only peer" /><div className="w-11 h-6 bg-gray-200 rounded-full peer ..."></div></label>
+                            
+                            <div className="space-y-3 overflow-auto flex-grow">
+                                {isLoadingJadwal ? <p>Memuat jadwal...</p> 
+                                : daftarJadwal.length > 0 ? daftarJadwal.map(jadwal => (
+                                    <div key={jadwal.id} className="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
+                                        <div>
+                                            <p className="font-bold">{jadwal.nama || `Jadwal #${jadwal.id}`}</p>
+                                            <p className="text-sm text-gray-500">
+                                                {/* [DATA AKTIF] Data ini sekarang dari database */}
+                                                Waktu: {Array.isArray(jadwal.waktu) ? jadwal.waktu.join(', ') : ''} | 
+                                                Durasi: {jadwal.durasi} menit | 
+                                                Kipas: {Array.isArray(jadwal.fans) ? jadwal.fans.join(', ') : ''}
+                                            </p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => handleEditJadwal(jadwal)} className="text-sm text-yellow-600 hover:text-yellow-800">Edit</button>
+                                            <button onClick={() => handleHapusJadwal(jadwal.id)} className="text-sm text-red-600 hover:text-red-800">Hapus</button>
+                                        </div>
+                                    </div>
+                                )) 
+                                : <p className="text-center text-gray-500 py-4">Belum ada jadwal. Klik "Tambah Jadwal" untuk membuat.</p>}
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    );
-};  
 
-// --- [UPDATED] Komponen Modal Edit Alat ---
+            {/* Modal Form Jadwal (Tidak berubah) */}
+            <AnimatePresence>
+                {isFormJadwalVisible && (
+                    <ModalFormJadwalClimate 
+                        onClose={() => setIsFormJadwalVisible(false)} 
+                        onSave={handleSimpanJadwal} 
+                        jadwalToEdit={jadwalToEdit}
+                    />
+                )}
+            </AnimatePresence>
+        </>
+    );
+};
+
+// --- Komponen Modal Edit Alat ---
 const ModalEditAlat = ({ alat, onClose, onUpdate, onDelete }) => {
     const [formData, setFormData] = useState(alat);
     

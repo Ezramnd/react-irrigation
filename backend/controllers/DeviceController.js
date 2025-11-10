@@ -1,6 +1,7 @@
 import Devices from "../models/DeviceModel.js";
 import Schedules from "../models/ScheduleModel.js";
 import Users from "../models/UserModel.js";
+import ClimateSchedules from "../models/ClimateScheduleModel.js";
 import { Op } from 'sequelize';
 
 // Mengambil semua alat (untuk admin) atau hanya milik sendiri (untuk user)
@@ -139,7 +140,12 @@ export const getDeviceById = async (req, res) => {
             where: { id: req.params.id },
             include: [
                 { model: Users, attributes: ['name', 'email'] },
-                { model: Schedules } // Sertakan semua jadwal yang terhubung
+                { model: Schedules },
+                // {model: ClimateSchedules}
+                { 
+                 model: ClimateSchedules,
+                    as: 'climateSchedules' 
+                } 
             ]
         };
 

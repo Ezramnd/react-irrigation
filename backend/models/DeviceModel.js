@@ -1,6 +1,6 @@
 import { Sequelize } from "sequelize";
 import db from "../config/Database.js";
-import Users from "./UserModel.js"; // Import model Users
+import Users from "./UserModel.js"; 
 
 const { DataTypes } = Sequelize;
 
@@ -10,29 +10,29 @@ const Devices = db.define('devices', {
         defaultValue: DataTypes.UUIDV4,
         allowNull: false,
         validate: {
-            notEmpty: true
+                notEmpty: true
         }
     },
     nama: {
         type: DataTypes.STRING,
         allowNull: false,
         validate: {
-            notEmpty: true,
-            len: [3, 100]
+                notEmpty: true,
+                len: [3, 100]
         }
     },
     jenis: {
         type: DataTypes.ENUM('Smart Irrigation', 'Climate', "Dosing"),
         allowNull: false,
         validate: {
-            notEmpty: true
+                notEmpty: true
         }
     },
     lokasi: {
         type: DataTypes.STRING,
         allowNull: false,
         validate: {
-            notEmpty: true
+                notEmpty: true
         }
     },
     status: {
@@ -42,31 +42,31 @@ const Devices = db.define('devices', {
     },
     macAddress: {
         type: DataTypes.STRING(18), // Format: "AA:BB:CC:DD:EE:FF"
-        allowNull: true, // Boleh null awalnya, sampai perangkat mendaftar
+        allowNull: true, 
         unique: true
     },
-    //  details: {
-    //     type: DataTypes.JSON,
-    //     allowNull: true
-    // },
     userId: { // Ini adalah Foreign Key
         type: DataTypes.INTEGER,
         allowNull: false,
         validate: {
-            notEmpty: true
+                notEmpty: true
         }
     },
     ssid: {
         type: DataTypes.STRING,
-        allowNull: true // SSID juga bisa null
+        allowNull: true 
     },
+
+    // --- [TAMBAHAN BARU] MULAI ---
+    controlMode: {
+        type: DataTypes.ENUM('auto', 'manual'),
+        allowNull: false,
+        defaultValue: 'auto'
+    }
+    // --- [TAMBAHAN BARU] SELESAI ---
+
 }, {
     freezeTableName: true
 });
-
-// Mendefinisikan relasi: Setiap User memiliki banyak Device
-// HAPUS DUA BARIS DI BAWAH INI
-// Users.hasMany(Devices);
-// Devices.belongsTo(Users, { foreignKey: 'userId' });
 
 export default Devices;

@@ -16,8 +16,8 @@ import { initializeRealtimeManager } from './realtimeManager.js';
 import { handleSyncRequest } from "./controllers/ScheduleController.js";
 
 // --- Konfigurasi ---
-const MQTT_BROKER_URL = 'mqtt://localhost';
-const FRONTEND_URL = "http://localhost:5173";
+const MQTT_BROKER_URL = 'mqtt://192.168.1.13';
+const FRONTEND_URL = "http://192.168.1.13:5173";
 const PORT = 5000;
 dotenv.config();
 
@@ -25,9 +25,14 @@ const app = express();
 const server = http.createServer(app);
 
 // --- PERUBAHAN: Setup Socket.IO ---
+// --- PERUBAHAN: Setup Socket.IO ---
 const io = new Server(server, {
     cors: {
-        origin: FRONTEND_URL,
+        origin: [
+            process.env.FRONTEND_URL, 
+            "http://192.168.1.13:5173",
+            "http://localhost:5173" // <-- TAMBAHKAN INI
+        ],
         methods: ["GET", "POST"]
     }
 });
@@ -47,7 +52,15 @@ try {
     await db.sync();
 } catch (error) { console.error('❌ Database Error:', error); }
 // Izinkan semua origin, atau tentukan array origin
-app.use(cors({ credentials: true, origin: [FRONTEND_URL, 'http://localhost:8081'] })); 
+
+// ✅ AKTIFKAN DAN KONFIGURASI CORS DI SINI
+app.use(cors({
+    credentials: true,
+    origin: [
+        FRONTEND_URL, "http://192.168.1.13:5173" , "http://localhost:5173"
+        // Tambahkan origin ini
+    ]
+})); 
 // Ganti 192.168.1.10 dengan IP lokal komputer Anda. 
 // Port 8081 adalah default Expo.
 // Atau cara paling mudah untuk development:
@@ -103,4 +116,5 @@ mqttClient.on('error', (err) => console.error('❌ Error MQTT:', err));
 mqttClient.on('reconnect', () => console.log('🔄 Mencoba rekoneksi MQTT...'));
 
 // Kita tidak lagi butuh on('message') atau Socket.IO di sini
-server.listen(PORT, () => console.log(`🚀 Server berjalan di http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`🚀 Server berjalan di http://192.168.1.13:${PORT}`));
+

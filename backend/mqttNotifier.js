@@ -11,7 +11,7 @@ export const setMqttClient = (client) => {
 export const subscribeToDeviceStatus = (macAddress) => {
     if (mqttClient && mqttClient.connected && macAddress) {
         const macTopic = macAddress.replace(/:/g, '-');
-        const statusTopic = `esp32/status/${macTopic}`;
+        const statusTopic = `${mqttClient.options.username}/esp32/status/${macTopic}`;
         
         mqttClient.subscribe(statusTopic, (err) => {
             if (!err) {
@@ -25,12 +25,18 @@ export const subscribeToDeviceStatus = (macAddress) => {
 
 // Fungsi ini akan kita panggil dari controller
 export const publishScheduleUpdate = (topic, payload) => {
-    if (mqttClient && mqttClient.connected) {
-        mqttClient.publish(topic, JSON.stringify(payload), { qos: 1 }, (err) => {
+    // Pastikan client ada, terhubung, dan punya options
+    if (mqttClient && mqttClient.connected && mqttClient.options) {
+        const username = mqttClient.options.username; // <-- AMBIL USERNAME
+        const fullTopic = `${username}/${topic}`; // <-- BUAT TOPIK LENGKAP
+
+        mqttClient.publish(fullTopic, JSON.stringify(payload), { qos: 1 }, (err) => {
             if (!err) {
-                console.log(`✅ Notifikasi jadwal terkirim ke topik ${topic}:`, payload);
+                // Gunakan fullTopic di log
+                console.log(`✅ Notifikasi jadwal terkirim ke topik ${fullTopic}:`, payload);
             } else {
-                console.error(`❌ Gagal mengirim notifikasi ke ${topic}:`, err);
+                // Gunakan fullTopic di log error
+                console.error(`❌ Gagal mengirim notifikasi ke ${fullTopic}:`, err);
             }
         });
     } else {

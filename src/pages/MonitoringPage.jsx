@@ -7,8 +7,10 @@ import { BsTable, BsFiletypeCsv, BsFiletypeXlsx } from 'react-icons/bs';
 import api from '../api';
 import MainLayout from '../components/MainLayout';
 
+
+
 // Terhubung ke server Socket.IO
-const socket = io('http://192.168.1.13:5000');
+const socket = io(`http://192.168.1.29:5000`);
 
 // Komponen kecil untuk badge status agar lebih rapi
 const StatusBadge = ({ status }) => {
@@ -22,6 +24,19 @@ const StatusBadge = ({ status }) => {
         <span className={`px-3 py-1 text-xs font-semibold rounded-full ${currentStatus.textColor} ${currentStatus.bgColor} inline-flex items-center`}>
             {currentStatus.icon}
             {currentStatus.text}
+        </span>
+    );
+};
+
+const LogStatusBadge = ({ status }) => {
+    const isSuccess = status === 'SUCCESS';
+    const statusClass = isSuccess 
+        ? 'bg-green-100 text-green-700' 
+        : 'bg-red-100 text-red-700';
+
+    return (
+        <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${statusClass}`}>
+            {status}
         </span>
     );
 };
@@ -90,33 +105,48 @@ const DownloadButton = ({ data, filename, format }) => {
     );
 };
 
+// Helper untuk memformat tanggal dari ISO string
+const formatTimestamp = (isoDate) => {
+    if (!isoDate) return 'N/A';
+    const date = new Date(isoDate);
+    return date.toLocaleString('id-ID', {
+        dateStyle: 'medium',
+        timeStyle: 'medium'
+    });
+};
+
 const MonitoringPage = () => {
     // State untuk menyimpan data
     const [daftarAlat, setDaftarAlat] = useState([]);
     const [daftarJadwal, setDaftarJadwal] = useState([]);
+    const [scheduleLogs, setScheduleLogs] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     // State untuk pencarian dan filter
     const [searchAlat, setSearchAlat] = useState('');
     const [searchJadwal, setSearchJadwal] = useState('');
+    const [searchLogs, setSearchLogs] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
 
     // Ref untuk tabel container (untuk responsif pada perangkat kecil)
     const alatTableRef = useRef(null);
     const jadwalTableRef = useRef(null);
+    const logTableRef = useRef(null);
 
     // Mengambil data awal untuk ALAT dan JADWAL
     useEffect(() => {
         const fetchInitialData = async () => {
             try {
                 // Ambil kedua data secara bersamaan
-                const [alatRes, jadwalRes] = await Promise.all([
+                const [alatRes, jadwalRes, logRes] = await Promise.all([
                     api.get('/alat'),
-                    api.get('/jadwal')
+                    api.get('/jadwal'),
+                    api.get('/logs/schedule')
                 ]);
                 setDaftarAlat(alatRes.data);
                 setDaftarJadwal(jadwalRes.data);
+                setScheduleLogs(logRes.data);
             } catch (error) {
                 toast.error("Gagal memuat data awal.");
                 console.error("Gagal fetch data:", error);
@@ -131,12 +161,14 @@ const MonitoringPage = () => {
     const refreshData = async () => {
         setIsRefreshing(true);
         try {
-            const [alatRes, jadwalRes] = await Promise.all([
+            const [alatRes, jadwalRes, logRes] = await Promise.all([
                 api.get('/alat'),
-                api.get('/jadwal')
+                api.get('/jadwal'),
+                api.get('/logs/schedule')
             ]);
             setDaftarAlat(alatRes.data);
             setDaftarJadwal(jadwalRes.data);
+            setScheduleLogs(logRes.data);
             toast.success("Data berhasil diperbarui");
         } catch (error) {
             toast.error("Gagal memperbarui data");
@@ -156,8 +188,20 @@ const MonitoringPage = () => {
             );
         });
 
+        // --- TAMBAHAN ---
+        // Anda bisa menambahkan socket listener di sini jika backend Anda
+        // meng-emit 'new-log' saat log baru masuk.
+        // socket.on('new-log', (newLog) => {
+        //   // Tambahkan log baru ke atas daftar
+        //   setScheduleLogs(prevLogs => [newLog, ...prevLogs]);
+        //   // Batasi agar tidak terlalu banyak di memori
+        //   setScheduleLogs(prevLogs => prevLogs.slice(0, 100)); 
+        //   toast.success("Log baru diterima!");
+        // });
+
         return () => {
             socket.off('device-update');
+            // socket.off('new-log');
         };
     }, []);
       // Filter data alat berdasarkan pencarian dan status
@@ -181,6 +225,19 @@ const MonitoringPage = () => {
         jadwal.tanggalSelesai?.toLowerCase().includes(searchJadwal.toLowerCase())
     );
 
+    // Filter data log berdasarkan pencarian
+    const filteredLogs = scheduleLogs.filter(log => {
+        const searchLower = searchLogs.toLowerCase();
+        return (
+            log.nama?.toLowerCase().includes(searchLower) ||
+            log.tanggal?.toLowerCase().includes(searchLower) ||
+            log.waktu?.toLowerCase().includes(searchLower) ||
+            log.solenoid?.toLowerCase().includes(searchLower) ||
+            log.status?.toLowerCase().includes(searchLower) ||
+            log.internet?.toLowerCase().includes(searchLower)
+        );
+    });
+
     // Animasi
     const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
     const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1 } };
@@ -188,7 +245,7 @@ const MonitoringPage = () => {
      return (
         <MainLayout>
             <Toaster position="top-center" />
-            <div className="p-4 md:p-6 lg:p-8">
+            <div className="grid grid-cols-1 gap-6">
                 <motion.div variants={containerVariants} initial="hidden" animate="visible">
 
                     {/* --- Tabel untuk Daftar Alat --- */}
@@ -292,7 +349,7 @@ const MonitoringPage = () => {
                     </motion.div>
 
                     {/* --- Tabel Jadwal --- */}
-                    <motion.div variants={itemVariants} className="bg-white p-4 md:p-6 rounded-2xl shadow-lg">
+                    <motion.div variants={itemVariants} className="bg-white p-4 md:p-6 rounded-2xl shadow-lg mb-6 md:mb-8">
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b pb-4">
                             <h2 className="text-xl font-bold text-gray-800">Semua Jadwal Terdaftar</h2>
                             <div className="flex flex-wrap gap-2 mt-3 sm:mt-0">
@@ -372,6 +429,90 @@ const MonitoringPage = () => {
                         <div className="mt-2 text-xs text-gray-500 flex items-center">
                             <BsTable className="mr-1" /> 
                             Menampilkan {filteredJadwal.length} dari {daftarJadwal.length} jadwal
+                        </div>
+                    </motion.div>
+
+                    <motion.div variants={itemVariants} className="bg-white p-4 md:p-6 rounded-2xl shadow-lg">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b pb-4">
+                            <h2 className="text-xl font-bold text-gray-800">Log Eksekusi Jadwal</h2>
+                            <div className="flex flex-wrap gap-2 mt-3 sm:mt-0">
+                                {/* Tombol refresh di sini sudah meng-handle log */}
+                                <DownloadButton 
+                                    data={filteredLogs} 
+                                    filename="log-jadwal" 
+                                    format="csv"
+                                />
+                                <DownloadButton 
+                                    data={filteredLogs} 
+                                    filename="log-jadwal" 
+                                    format="xlsx"
+                                />
+                                </div>
+                        </div>
+
+                        {/* Search Bar untuk Log */}
+                        <div className="relative w-full sm:w-64 mb-4">
+                            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Cari log..."
+                                value={searchLogs}
+                                onChange={(e) => setSearchLogs(e.target.value)}
+                                className="pl-10 pr-4 py-2 w-full border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+
+                        {/* Tabel Log */}
+                        <div ref={logTableRef} className="overflow-x-auto rounded-lg border">
+                            <table className="w-full text-sm text-left text-gray-600 min-w-full divide-y divide-gray-200">
+                                <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+                                    <tr>
+                                        <th scope="col" className="px-4 py-3 sm:px-6">Waktu Eksekusi</th>
+                                        <th scope="col" className="px-4 py-3 sm:px-6">Nama Jadwal</th>
+                                        <th scope="col" className="px-4 py-3 sm:px-6">Tanggal Terjadwal</th>
+                                        <th scope="col" className="px-4 py-3 sm:px-6">Jam Pemicu</th>
+                                        <th scope="col" className="px-4 py-3 sm:px-6">Durasi (mnt)</th>
+                                        <th scope="col" className="px-4 py-3 sm:px-6">Solenoid</th>
+                                        <th scope="col" className="px-4 py-3 sm:px-6">Koneksi</th>
+                                        <th scope="col" className="px-4 py-3 sm:px-6">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {isLoading ? (
+                                        <tr><td colSpan="8" className="text-center p-4">
+                                            <div className="flex justify-center items-center space-x-2">
+                                                <FiRefreshCw className="animate-spin text-blue-500" />
+                                                <span>Memuat log...</span>
+                                            </div>
+                                        </td></tr>
+                                    ) : filteredLogs.length === 0 ? (
+                                        <tr><td colSpan="8" className="text-center p-4">
+                                            {searchLogs ? 'Tidak ada log yang sesuai dengan pencarian.' : 'Belum ada log eksekusi.'}
+                                        </td></tr>
+                                    ) : (
+                                        filteredLogs.map((log) => (
+                                            <tr key={log.id} className="bg-white hover:bg-gray-50 transition-colors">
+                                                <td className="px-4 py-3 sm:px-6 font-mono text-xs">{formatTimestamp(log.timestamp)}</td>
+                                                <td className="px-4 py-3 sm:px-6 font-medium text-gray-900">{log.nama}</td>
+                                                <td className="px-4 py-3 sm:px-6">{log.tanggal}</td>
+                                                <td className="px-4 py-3 sm:px-6">{log.waktu}</td>
+                                                <td className="px-4 py-3 sm:px-6">{log.durasi}</td>
+                                                <td className="px-4 py-3 sm:px-6">{log.solenoid}</td>
+                                                <td className="px-4 py-3 sm:px-6">
+                                                    <StatusBadge status={log.internet === 'Online' ? 'active' : 'inactive'} />
+                                                </td>
+                                                <td className="px-4 py-3 sm:px-6">
+                                                    <LogStatusBadge status={log.status} />
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="mt-2 text-xs text-gray-500 flex items-center">
+                            <BsTable className="mr-1" /> 
+                            Menampilkan {filteredLogs.length} dari {scheduleLogs.length} log (maks 100)
                         </div>
                     </motion.div>
                 </motion.div>

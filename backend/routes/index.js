@@ -5,6 +5,24 @@ import { refreshToken } from "../controllers/RefreshToken.js";
 import { getDevices, createDevice, updateDevice, deleteDevice, getDeviceById } from "../controllers/DeviceController.js";
 import Devices from "../models/DeviceModel.js";
 import { getDeviceSchedules, createScheduleForDevice, deleteSchedule, updateSchedule, getSchedules, manualControl} from "../controllers/ScheduleController.js";
+import { 
+    getDeviceClimateSchedules, 
+    createClimateScheduleForDevice, 
+    updateClimateSchedule, 
+    deleteClimateSchedule, 
+    getClimateSchedules,
+    getClimateSettings,
+    updateClimateSettings,
+    manualClimateControl,
+    getClimateData,
+    getClimateChartData,
+    deleteClimateData,
+    deleteFilteredClimateData,
+    getAllClimateData,
+    getControlMode,
+    setControlMode
+} from "../controllers/ClimateScheduleController.js";
+import { getScheduleLogs } from "../controllers/LogController.js";
 import { forgotPassword, resetPassword } from "../controllers/Users.js";
 
 const router = express.Router();
@@ -46,6 +64,37 @@ router.post('/devices/:deviceId/manual', verifyToken, manualControl);
 router.delete('/jadwal/:scheduleId', verifyToken, deleteSchedule);
 router.patch('/jadwal/:scheduleId', verifyToken, updateSchedule);
 router.get('/jadwal', verifyToken, getSchedules);
+// Rute untuk mendapatkan log jadwal
+router.get('/logs/schedule', verifyToken, getScheduleLogs);
+
+// ==========================================
+// --- RUTE CLIMATE (Tambahan Baru) ---
+// ==========================================
+
+// 1. Data & Chart (Historis)
+// Menggunakan param :deviceId sesuai controller
+router.get('/alat/:deviceId/climate-data', verifyToken, getClimateData);
+router.get('/alat/:deviceId/climate-chart', verifyToken, getClimateChartData);
+router.delete('/alat/:deviceId/climate-data', verifyToken, deleteClimateData);
+router.delete('/alat/:deviceId/climate-data/filtered', verifyToken, deleteFilteredClimateData);
+
+// 2. Kontrol Manual & Mode
+router.post('/alat/:deviceId/climate-manual', verifyToken, manualClimateControl);
+router.get('/alat/:deviceId/control-mode', verifyToken, getControlMode);
+router.patch('/alat/:deviceId/control-mode', verifyToken, setControlMode);
+
+// 3. Penjadwalan Climate
+router.get('/alat/:deviceId/climate-jadwal', verifyToken, getDeviceClimateSchedules);
+router.post('/alat/:deviceId/climate-jadwal', verifyToken, createClimateScheduleForDevice);
+router.patch('/climate-jadwal/:scheduleId', verifyToken, updateClimateSchedule);
+router.delete('/climate-jadwal/:scheduleId', verifyToken, deleteClimateSchedule);
+
+// 4. Pengaturan Treshold (Suhu Min/Max)
+// Perhatikan: Controller Anda menggunakan req.params.id untuk settings, jadi kita pakai :id
+router.get('/alat/:id/climate-settings', verifyToken, getClimateSettings);
+router.patch('/alat/:id/climate-settings', verifyToken, updateClimateSettings);
+
+// Rute untuk lupa password dan reset password
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password/:token', resetPassword);
 

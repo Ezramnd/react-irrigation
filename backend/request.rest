@@ -1,8 +1,12 @@
-GET http://192.168.1.13:5000/users
+import dotenv from "dotenv";
+
+dotenv.config();
+
+GET ${process.env.APP_URL}:${process.env.PORT}/users
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZW1haWwiOiJqb2huQGV4YW1wbGUuY29tIiwiaWF0IjoxNzU2NzM4OTEzLCJleHAiOjE3NTY3Mzg5MzN9.17XSdoUVwLEzweBuYY7_17aUtIUpVoM3263_dIMKQyk
 
 ### Register User Baru (Sebagai Admin)
-POST http://192.168.1.13:5000/users
+POST ${process.env.APP_URL}:${process.env.PORT}/users
 Content-Type: application/json
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwibmFtZSI6IkFkbWluIiwiZW1haWwiOiJhZG1pbkBjb250b2guY29tIiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzU3NTQxMDU5LCJleHAiOjE3NTc1NDQ2NTl9.abcdef123456
 
@@ -15,7 +19,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwibmFtZSI6I
 }
 
 ### Login User
-POST http://192.168.1.13:5000/login
+POST ${process.env.APP_URL}:${process.env.PORT}/login
 Content-Type: application/json
 
 {
@@ -25,15 +29,15 @@ Content-Type: application/json
 
 
 ###
-GET http://192.168.1.13:5000/token
+GET ${process.env.APP_URL}:${process.env.PORT}/token
 
 ###
 
-DELETE http://192.168.1.13:5000/logout
+DELETE ${process.env.APP_URL}:${process.env.PORT}/logout
 
 
 ### Register Alat
-POST http://192.168.1.13:5000/alat
+POST ${process.env.APP_URL}:${process.env.PORT}/alat
 Content-Type: application/json
 
 {

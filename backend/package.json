@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon index.js"
+    "mosquitto": "mosquitto -c ./mosquitto/mosquitto.conf -v",
+    "start": "concurrently \"nodemon index.js\" \"npm run mosquitto\""
+  
   },
   "keywords": [],
   "author": "",

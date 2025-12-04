@@ -37,18 +37,18 @@ const Devices = db.define('devices', {
     },
     status: {
         type: DataTypes.ENUM('active', 'inactive', 'maintenance'),
-        defaultValue: 'active',
+        defaultValue: 'inactive',
         allowNull: false
     },
     macAddress: {
-        type: DataTypes.STRING(18), // Format: "AA:BB:CC:DD:EE:FF"
+        type: DataTypes.STRING,
         allowNull: true, // Boleh null awalnya, sampai perangkat mendaftar
         unique: true
     },
-    //  details: {
-    //     type: DataTypes.JSON,
-    //     allowNull: true
-    // },
+    deviceType: {
+        type: DataTypes.STRING, // Akan menyimpan "IRRIGATION", "CLIMATE", dll.
+        allowNull: false // Bisa dibuat true dulu, nanti diisi otomatis oleh server
+    },
     userId: { // Ini adalah Foreign Key
         type: DataTypes.INTEGER,
         allowNull: false,
@@ -56,9 +56,14 @@ const Devices = db.define('devices', {
             notEmpty: true
         }
     },
-    ssid: {
+    connectionType: {
         type: DataTypes.STRING,
         allowNull: true // SSID juga bisa null
+    },
+     controlMode: {
+        type: DataTypes.ENUM('auto', 'manual'),
+        allowNull: false,
+        defaultValue: 'auto'
     },
 }, {
     freezeTableName: true

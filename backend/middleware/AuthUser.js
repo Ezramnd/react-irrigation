@@ -1,5 +1,8 @@
 import jwt from "jsonwebtoken";
 import Users from "../models/UserModel.js";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 /**
  * Middleware untuk memverifikasi accessToken.

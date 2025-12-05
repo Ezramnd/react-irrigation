@@ -4,6 +4,9 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { Op } from "sequelize";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 // Mengambil semua user (hanya untuk admin)
 export const getUsers = async (req, res) => {

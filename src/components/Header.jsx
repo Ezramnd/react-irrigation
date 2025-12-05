@@ -79,7 +79,7 @@ const Header = ({ onMenuClick }) => {
 
   return (
     <motion.header
-      className="bg-white shadow-sm border-b border-gray-100 px-6 py-4 flex items-center justify-between sticky top-0 z-10"
+      className="bg-white shadow-sm border-b border-gray-100 px-6 py-1 flex items-center justify-between sticky top-0 z-10"
       variants={headerVariants}
       initial="initial"
       animate="animate"

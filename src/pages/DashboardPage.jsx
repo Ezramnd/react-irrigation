@@ -153,7 +153,7 @@ const DashboardPage = () => {
 
         switch (selectedDevice.jenis) {
             case 'Climate':
-                return <ClimateDashboard />;
+                return <ClimateDashboard deviceId={selectedDeviceId} />;
             case 'Smart Irrigation':
                 return <SmartIrrigationDashboard device={selectedDevice} />;
             default:

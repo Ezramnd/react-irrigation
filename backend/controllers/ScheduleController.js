@@ -3,10 +3,16 @@ import Devices from "../models/DeviceModel.js";
 import { publishScheduleUpdate } from "../mqttNotifier.js";
 
 // Helper function untuk membuat topik MQTT dari MAC Address
-const createTopicFromMac = (macAddress) => {
-    if (!macAddress) return null;
-    let topicMac = macAddress.replace(/:/g, '-');
-    return `esp32/alat/${topicMac}/jadwal/set`;
+const createTopicFromMac = (device) => {
+    if (!device || !device.macAddress || !device.deviceType) return null;
+    
+    // Hapus semua titik dua (:) dan ubah menjadi huruf besar agar cocok dengan ESP32
+    const macStrSimple = device.macAddress.replace(/:/g, '').toUpperCase(); 
+    
+    // Ambil deviceType langsung dari objek device
+    const deviceType = device.deviceType.toUpperCase();
+    
+    return `esp32/alat/${deviceType}-${macStrSimple}/jadwal/set`;
 }
 
 // Mengambil semua jadwal (untuk admin) atau hanya milik sendiri (untuk user)
@@ -60,7 +66,7 @@ export const createScheduleForDevice = async (req, res) => {
         const newSchedule = await Schedules.create({ nama, tanggalMulai, tanggalSelesai, waktu, durasi, solenoid, userId: req.userId });
         await device.addSchedule(newSchedule);
 
-        const topic = createTopicFromMac(device.macAddress);
+        const topic = createTopicFromMac(device); // <-- Panggil helper yang benar
         if (topic) {
             const payload = { action: 'UPSERT', schedule: newSchedule.toJSON() };
             publishScheduleUpdate(topic, payload);
@@ -88,8 +94,8 @@ export const updateSchedule = async (req, res) => {
 
         // Kirim notifikasi update ke semua alat yang menggunakan jadwal ini
         for (const device of schedule.devices) {
-            if (device.macAddress) {
-                const topic = createTopicFromMac(device.macAddress);
+           if (device.macAddress) {
+                const topic = createTopicFromMac(device); // <-- Ubah di sini
                 const scheduleJSON = schedule.toJSON();
                 delete scheduleJSON.devices;
                 const payload = { action: 'UPSERT', schedule: scheduleJSON };
@@ -116,9 +122,9 @@ export const deleteSchedule = async (req, res) => {
 
         const scheduleIdToDelete = schedule.id;
         // Kirim notifikasi hapus ke semua alat yang menggunakan jadwal ini
-        for (const device of schedule.devices) {
+         for (const device of schedule.devices) {
             if (device.macAddress) {
-                const topic = createTopicFromMac(device.macAddress);
+                const topic = createTopicFromMac(device);
                 const payload = { action: 'DELETE', scheduleId: scheduleIdToDelete };
                 publishScheduleUpdate(topic, payload);
             }
@@ -156,7 +162,7 @@ export const handleSyncRequest = async (macAddress) => {
         };
 
         // 4. Buat topik tujuan dan kirim kembali ke ESP32
-        const topic = createTopicFromMac(device.macAddress);
+        const topic = createTopicFromMac(device);
         if (topic) {
             publishScheduleUpdate(topic, payload);
             console.log(`Mengirim ${schedules.length} jadwal ke topik: ${topic}`);
@@ -168,10 +174,11 @@ export const handleSyncRequest = async (macAddress) => {
 };
 
 // Helper function untuk membuat topik MQTT manual
-const createManualTopicFromMac = (macAddress) => {
-    if (!macAddress) return null;
-    const topicMac = macAddress.replace(/:/g, '-');
-    return `esp32/alat/${topicMac}/manual/set`;
+const createManualTopicFromMac = (device) => {
+    if (!device || !device.macAddress || !device.deviceType) return null;
+    const macStrSimple = device.macAddress.replace(/:/g, '').toUpperCase();
+    const deviceType = device.deviceType.toUpperCase();
+    return `esp32/alat/${deviceType}-${macStrSimple}/manual/set`;
 };
 
 export const manualControl = async (req, res) => {
@@ -188,7 +195,8 @@ export const manualControl = async (req, res) => {
             return res.status(403).json({ msg: "Akses ditolak" });
         }
 
-        const topic = createManualTopicFromMac(device.macAddress);
+        const topic = createManualTopicFromMac(device);
+
         if (topic) {
             // --- PERUBAHAN 2: Buat payload secara kondisional ---
             let payload;

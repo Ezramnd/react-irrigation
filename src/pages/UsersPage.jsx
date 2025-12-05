@@ -126,16 +126,16 @@ const UsersPage = () => {
     return (
         <MainLayout>
             <Toaster position="top-center" />
-            <div className="p-8">
+            <div className="grid grid-cols-1">
                 <div className="flex justify-end items-center mb-6">
                         <button onClick={() => setModalState({ isOpen: true, user: null })} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                             <FiUserPlus /> Tambah User
                         </button>
                 </div>
                 {isLoading ? <p className="text-center">Memuat...</p> : (
-                    <div className="bg-white p-4 rounded-lg shadow">
-                        <table className="w-full">
-                            <thead className="border-b">
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
                                 <tr>
                                     <th className="text-left p-3">Nama</th>
                                     <th className="text-left p-3">Email</th>

@@ -7,7 +7,7 @@ import { Op } from 'sequelize';
 export const getDevices = async (req, res) => {
     try {
         const options = {
-            attributes: ['id', 'nama', 'jenis', 'lokasi', 'status', 'macAddress'],
+            attributes: ['id', 'nama', 'jenis', 'lokasi', 'macAddress'],
             include: [{
                 model: Users,
                 attributes: ['name', 'email']
@@ -28,7 +28,7 @@ export const getDevices = async (req, res) => {
 
 // Menambahkan alat baru
 export const createDevice = async (req, res) => {
-    const { nama, jenis, lokasi, macAddress } = req.body;
+    const { nama, jenis, lokasi, macAddress, deviceType} = req.body;
 
     // Validasi input dasar
     if (!nama || !jenis || !lokasi) {
@@ -50,8 +50,8 @@ export const createDevice = async (req, res) => {
             jenis,
             lokasi,
             macAddress, // Bisa null jika tidak disediakan saat membuat
-            status: macAddress ? 'active' : 'inactive', // Aktif jika ada MAC, jika tidak maka inaktif
-            userId: req.userId
+            userId: req.userId,
+            deviceType // Akan diisi otomatis oleh server berdasarkan jenis perangkat
         });
         res.status(201).json({ msg: "Alat berhasil ditambahkan.", device: newDevice });
     } catch (error) {
@@ -61,7 +61,7 @@ export const createDevice = async (req, res) => {
 
 // Memperbarui data alat
 export const updateDevice = async (req, res) => {
-    const { nama, jenis, lokasi, status, macAddress } = req.body;
+    const { nama, jenis, lokasi, macAddress } = req.body;
 
     try {
         const findOptions = { where: { id: req.params.id } };
@@ -85,8 +85,7 @@ export const updateDevice = async (req, res) => {
         await device.update({ 
             nama, 
             jenis, 
-            lokasi, 
-            status,
+            lokasi,
             macAddress
         });
 

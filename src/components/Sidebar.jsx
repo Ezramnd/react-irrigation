@@ -56,7 +56,7 @@ return (
                 {({ isActive }) => (
                   <>
                     {isActive && (
-                      <motion.div layoutId="active-pill" className="absolute left-0 top-0 h-full w-1.5 bg-blue-600 rounded-r-full" style={{ borderRadius: '0 8px 8px 0' }} />
+                      <motion.div layoutid="active-pill" className="absolute left-0 top-0 h-full w-1.5 bg-blue-600 rounded-r-full" style={{ borderRadius: '0 8px 8px 0' }} />
                     )}
                     {item.icon}
                     <span className="ml-1">{item.name}</span>
@@ -73,7 +73,7 @@ return (
                 {({ isActive }) => (
                   <>
                     {isActive && (
-                      <motion.div layoutId="active-pill" className="absolute left-0 top-0 h-full w-1.5 bg-blue-600 rounded-r-full" style={{ borderRadius: '0 8px 8px 0' }} />
+                      <motion.div layoutid="active-pill" className="absolute left-0 top-0 h-full w-1.5 bg-blue-600 rounded-r-full" style={{ borderRadius: '0 8px 8px 0' }} />
                     )}
                     <FaUsers className="h-6 w-6" />
                     <span className="ml-1">Manajemen User</span>

@@ -8,7 +8,7 @@ import api from '../api';
 import MainLayout from '../components/MainLayout';
 import QrScanner from '../components/QrScanner';
 
-const socket = io(`http://192.168.1.29:5000`);
+const socket = io(`http://localhost:3020`);
 
 // --- Komponen Kartu Alat ---
 const AlatCard = ({ alat, onClick }) => { 

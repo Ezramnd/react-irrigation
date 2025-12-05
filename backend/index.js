@@ -23,8 +23,8 @@ dotenv.config();
 
 // --- Konfigurasi ---
 const MQTT_BROKER_URL = process.env.MQTT_BROKER_URL || 'mqtts://broker.avisha.id' || 'broker.avisha.id';
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
-const PORT = process.env.PORT || 5000;
+const FRONTEND_URL = process.env.FRONTEND_URL || "https://magang.agrifamlink.com" || "http://localhost:5173";
+const PORT = process.env.PORT || 3020;
 
 
 const app = express();
@@ -98,7 +98,7 @@ try {
 app.use(cors({
     credentials: true,
     origin: [
-        FRONTEND_URL, "http://localhost:5173", "http://192.168.1.29:8081", "http://localhost:8081", "http://localhost:5000"
+        FRONTEND_URL, "http://localhost:5173", "https://magang.agrifamlink.com", "http://192.168.1.29:8081", "http://localhost:8081", "http://localhost:3020"
         // Tambahkan origin ini
     ]
 })); 

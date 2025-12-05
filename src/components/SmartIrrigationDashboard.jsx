@@ -229,7 +229,7 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
     useEffect(() => {
         if (!device?.id) return;
 
-        const socketUrl = "http://localhost:5000"; // GANTI SESUAI URL BACKEND ANDA
+        const socketUrl = "http://localhost:3020"; // GANTI SESUAI URL BACKEND ANDA
         const socket = io(socketUrl);
 
         console.log("🔌 Menghubungkan Socket.IO...");

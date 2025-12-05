@@ -479,7 +479,7 @@ const ClimateDashboard = ({ deviceId, initialSchedules, initialSettings }) => {
     const [tableRefetchTrigger, setTableRefetchTrigger] = useState(0);
     
     useEffect(() => {
-        socketRef.current = io('http://localhost:5000');
+        socketRef.current = io('http://localhost:3020');
         const socket = socketRef.current;
 
         socket.on('update_suhu', (data) => {
@@ -674,7 +674,7 @@ const ClimateDashboard = ({ deviceId, initialSchedules, initialSettings }) => {
 
         fetchSettings();
     }, [deviceId]);
-    
+
     const handleDeleteAllHistory = async () => {    
         if (!window.confirm("Apakah Anda yakin ingin menghapus SEMUA data historis climate untuk alat ini? Tindakan ini tidak dapat dibatalkan.")) {
             return;

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import MainLayout from '../components/MainLayout';
 import ClimateDashboard from '../components/ClimateDashboard';
 import SmartIrrigationDashboard from '../components/SmartIrrigationDashboard';
+import DosingDashboard from '../components/DosingDashboard';
 import { FiHardDrive, FiLoader, FiAlertTriangle } from 'react-icons/fi';
 
 const DashboardPage = () => {
@@ -19,6 +20,7 @@ const DashboardPage = () => {
 
     const [climateSchedules, setClimateSchedules] = useState(null);
     const [climateSettings, setClimateSettings] = useState(null);
+    const [dosingSettings, setDosingSettings] = useState(null);
     
     // useEffect untuk mengambil daftar alat saat komponen dimuat pertama kali
     useEffect(() => {
@@ -82,6 +84,7 @@ const DashboardPage = () => {
         setSelectedDevice(null);
         setClimateSchedules(null);
         setClimateSettings(null);
+        setDosingSettings(null);
         return;
     }
 
@@ -138,7 +141,19 @@ const DashboardPage = () => {
                         setClimateSettings(null); // Atau set ke default
                     }
                 }
-
+                else if (deviceData.jenis === 'Dosing') { 
+                    // Ambil Settings Dosing
+                    const settingsResponse = await axios.get(
+                        `/api/alat/${selectedDeviceId}/dosing-settings`,
+                        config 
+                    );
+                    
+                    if (settingsResponse.data) {
+                        setDosingSettings(settingsResponse.data);
+                    } else {
+                        setDosingSettings(null); // Atau set ke default
+                    }
+                }
         } catch (err) {
             if (err.response && err.response.status === 401) {
                 setError("Sesi Anda berakhir. Gagal memuat detail alat.");
@@ -188,6 +203,7 @@ const DashboardPage = () => {
         }
 
         switch (selectedDevice.jenis) {
+
             case 'Climate':
                 return <ClimateDashboard 
                     deviceId={selectedDeviceId}
@@ -196,7 +212,15 @@ const DashboardPage = () => {
                 />;
             case 'Smart Irrigation':
                 return <SmartIrrigationDashboard device={selectedDevice} />;
+
+            case 'Dosing':
+                return <DosingDashboard 
+                    deviceId={selectedDeviceId}
+                    initialSettings={dosingSettings}
+                />;
             default:
+
+
                 return (
                     <div className="flex flex-col items-center justify-center h-64 text-yellow-500">
                        <FiAlertTriangle className="text-4xl mb-4" />

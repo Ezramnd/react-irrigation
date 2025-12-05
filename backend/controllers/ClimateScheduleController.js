@@ -1,4 +1,3 @@
-// controllers/ClimateScheduleController.js
 import { io } from "../index.js";
 import ClimateSchedules from "../models/ClimateScheduleModel.js"; 
 import Devices from "../models/DeviceModel.js";

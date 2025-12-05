@@ -2,7 +2,22 @@ import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
-import { FaFan, FaThermometerHalf, FaPowerOff, FaQrcode, FaImage } from 'react-icons/fa';
+import { 
+  FaCrosshairs, 
+  FaThermometerHalf, 
+  FaTint, 
+  FaBolt, 
+  FaClock, 
+  FaPowerOff, 
+  FaCog, 
+  FaSave, 
+  FaInfoCircle, 
+  FaExclamationTriangle, 
+  FaChartLine, 
+  FaHandPaper,
+  FaQrcode, // <--- Tambahkan ini (Solusi Error FaQrcode is not defined)
+  FaImage   // <--- Tambahkan ini juga (Karena kamu menggunakannya di tombol "Upload Gambar")
+} from 'react-icons/fa';
 import QrScannerLib from 'qr-scanner';
 import api from '../api';
 import MainLayout from '../components/MainLayout';
@@ -654,6 +669,517 @@ const ModalFormJadwal = ({ onSave, onClose, jadwalToEdit }) => {
     );
 };
 
+// --- Komponen Modal Kontrol Dosing ---
+const ModalKontrolDosing = ({ alat, onClose, onEdit }) => {
+
+    // State Pengaturan
+    const [settings, setSettings] = useState({
+        targetPPM: '', pumpDuration_sec: '', checkInterval_sec: '',
+        startTime_hour: '', endTime_hour: '', dailyPumpLimit: ''
+    });
+    
+    const [originalSettings, setOriginalSettings] = useState(null); 
+    const [isSaving, setIsSaving] = useState(false); 
+    const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+
+    // State Sensor & Status Pompa
+    // Kita inisialisasi dengan null, tapi nanti langsung diisi data terakhir dari API
+    const [realtimeData, setRealtimeData] = useState({ tds_air: null, suhu_air: null });
+    const [isLoadingRealtime, setIsLoadingRealtime] = useState(true);
+    const [socketStatus, setSocketStatus] = useState("Menghubungkan..."); 
+    
+    // Switch A & B
+    const [switchA, setSwitchA] = useState(false);
+    const [switchB, setSwitchB] = useState(false);
+
+ // 1. Initial Data Fetch & Socket Connection
+    useEffect(() => {
+        if (!alat.id) return;
+
+        // A. Ambil Data Awal (Snapshot dari DB)
+        const fetchInitialData = async () => {
+            // Loading Settings & Realtime digabung agar UI rapi
+            setIsLoadingSettings(true); 
+            
+            try {
+                // 1. Ambil Settings
+                // Di dalam useEffect -> fetchInitialData
+
+                const resSettings = await api.get(`/alat/${alat.id}/dosing-settings`);
+                if (resSettings.data) {
+                    
+                    // HELPER: Ubah "04:00:00" jadi angka 4
+                    const parseHour = (timeString) => {
+                        if (!timeString) return '';
+                        // Ambil bagian depan sebelum titik dua
+                        return parseInt(timeString.split(':')[0], 10);
+                    };
+
+                    setSettings(prev => ({ 
+                        ...prev, 
+                        ...resSettings.data,
+                        // Gunakan helper di sini
+                        startTime_hour: parseHour(resSettings.data.startTime),
+                        endTime_hour: parseHour(resSettings.data.endTime)
+                    }));
+                    setOriginalSettings(resSettings.data);
+                }
+
+                // 2. Ambil Data Terakhir (Agar tidak kosong saat menunggu Socket)
+                const resHistory = await api.get(`/alat/${alat.id}/dosing-data?limit=1`);
+                if (resHistory.data && resHistory.data.data && resHistory.data.data.length > 0) {
+                    const lastData = resHistory.data.data[0];
+                    setRealtimeData({
+                        tds_air: parseFloat(lastData.tds_air),
+                        suhu_air: parseFloat(lastData.suhu_air)
+                    });
+                    
+                    // Matikan loading karena data DB sudah tampil
+                    setIsLoadingRealtime(false); 
+                    setSocketStatus("Data Terakhir (DB)");
+                }
+            } catch (error) {
+                console.error("Gagal load data awal:", error);
+                toast.error("Gagal memuat data awal.");
+            } finally {
+                setIsLoadingSettings(false);
+            }
+        };
+
+        fetchInitialData();
+
+        // B. --- SOCKET CONNECTION (REALTIME) ---
+        const socketUrl = `http://${window.location.hostname}:5000`; 
+        const socket = io(socketUrl);
+
+        // Helper Normalisasi MAC (Penting agar data tidak tertukar)
+        const normalizeMac = (mac) => mac ? mac.toString().toLowerCase().replace(/[:-]/g, "") : "";
+        const currentAlatMac = normalizeMac(alat.macAddress);
+
+        socket.on("connect", () => {
+            console.log("✅ Socket Terhubung ID:", socket.id);
+            setSocketStatus("Terhubung (Menunggu Data...)");
+            
+            // Join Room sesuai MAC Address
+            socket.emit("join_room", alat.macAddress); 
+        });
+
+        // --- LISTENER DATA REALTIME ---
+
+        // 1. Update TDS
+        socket.on("update_tds", (payload) => {
+            // Log untuk Debugging (Cek di Inspect Element -> Console)
+            console.log("📡 Terima TDS:", payload);
+
+            // Cek Validasi Kepemilikan Data
+            const payloadMac = normalizeMac(payload.mac);
+            
+            // Jika payload punya MAC, pastikan cocok. Jika tidak ada MAC, asumsikan broadcast global (opsional)
+            if (!payload.mac || payloadMac === currentAlatMac) {
+                const val = payload.value !== undefined ? payload.value : payload;
+                
+                setRealtimeData(prev => ({ 
+                    ...prev, 
+                    tds_air: parseFloat(val) 
+                }));
+                
+                setIsLoadingRealtime(false);
+                setSocketStatus("Live Data (Socket) ⚡");
+            }
+        });
+        
+        // 2. Update Suhu
+        socket.on("update_suhu", (payload) => {
+            console.log("📡 Terima Suhu:", payload);
+
+            const payloadMac = normalizeMac(payload.mac);
+
+            if (!payload.mac || payloadMac === currentAlatMac) {
+                const val = payload.value !== undefined ? payload.value : payload;
+
+                setRealtimeData(prev => ({ 
+                    ...prev, 
+                    suhu_air: parseFloat(val) 
+                }));
+
+                setIsLoadingRealtime(false);
+                setSocketStatus("Live Data (Socket) ⚡");
+            }
+        });
+
+        // 3. Update Status Pompa (Feedback Realtime saat tombol ditekan)
+        socket.on("update_pompa_a", (status) => {
+            console.log("📡 Status Pompa A:", status);
+            // Handle berbagai format boolean/string dari mikrokontroler
+            const isOn = (status === 'ON' || status === "1" || status === 1 || status === true);
+            setSwitchA(isOn);
+        });
+
+        socket.on("update_pompa_b", (status) => {
+            console.log("📡 Status Pompa B:", status);
+            const isOn = (status === 'ON' || status === "1" || status === 1 || status === true);
+            setSwitchB(isOn);
+        });
+
+        // Cleanup saat modal ditutup
+        return () => {
+            socket.disconnect();
+            console.log("❌ Socket Disconnected");
+        };
+
+    }, [alat.id, alat.macAddress]);
+
+    const hoursOptions = Array.from({ length: 24 }, (_, i) => (
+        <option key={i} value={i}>{i.toString().padStart(2, '0')}:00</option>
+    ));
+
+    // Handle Save Settings
+        const handleSaveSettings = async () => {
+            if (isSaving) return;
+            const formatTime = (hour) => {
+            if (hour === '' || hour === null) return null;
+            return `${String(hour).padStart(2, '0')}:00:00`;
+        };
+
+        const currentData = {
+            targetPPM: settings.targetPPM,
+            pumpDuration_sec: settings.pumpDuration_sec,
+            checkInterval_sec: settings.checkInterval_sec,
+            startTime: formatTime(settings.startTime_hour), 
+            endTime: formatTime(settings.endTime_hour),
+            dailyPumpLimit: settings.dailyPumpLimit
+        };
+
+        const originalData = {
+            targetPPM: originalSettings?.targetPPM,
+            pumpDuration_sec: originalSettings?.pumpDuration_sec,
+            checkInterval_sec: originalSettings?.checkInterval_sec,
+            startTime_hour: originalSettings?.startTime_hour,
+            endTime_hour: originalSettings?.endTime_hour,
+            dailyPumpLimit: originalSettings?.dailyPumpLimit
+        };
+
+        if (JSON.stringify(currentData) === JSON.stringify(originalData)) {
+            toast.success("Pengaturan sudah disimpan.");
+            return;
+        }
+
+        const fieldsToValidate = [
+            { key: 'targetPPM', label: 'Target PPM', strictPositive: true },
+            { key: 'pumpDuration_sec', label: 'Durasi Pompa', strictPositive: true },
+            { key: 'checkInterval_sec', label: 'Interval Cek', strictPositive: true },
+            { key: 'dailyPumpLimit', label: 'Limit Pompa Harian', strictPositive: true },
+            { key: 'startTime_hour', label: 'Jam Mulai', strictPositive: false }, 
+            { key: 'endTime_hour', label: 'Jam Selesai', strictPositive: false }
+        ];
+
+        for (let field of fieldsToValidate) {
+            const val = settings[field.key];
+            if (val === '' || val === null || val === undefined) {
+                toast.error(`${field.label} tidak boleh kosong`);
+                return;
+            }
+            if (field.strictPositive && Number(val) <= 0) {
+                toast.error(`${field.label} tidak boleh 0 atau negatif`);
+                return;
+            }
+        }
+
+        setIsSaving(true);
+        try {
+            await api.patch(`/alat/${alat.id}/dosing-settings`, currentData);
+            toast.success('Pengaturan berhasil disimpan!');
+            setOriginalSettings(currentData);
+        } catch (error) {
+            toast.error('Gagal menyimpan pengaturan.');
+            console.error(error);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // Handle Manual Pump
+    const handleTogglePump = async (pump) => {
+        const targetState = (pump === 'a') ? !switchA : !switchB;
+        
+        // 1. Optimistic Update
+        if (pump === 'a') setSwitchA(targetState);
+        else setSwitchB(targetState);
+
+        // 2. Kirim API
+        const pumpTarget = (pump === 'a') ? 'pumpA' : 'pumpB';
+        const valueToSend = targetState ? "1" : "0";
+
+        try {
+            await api.post(`/alat/${alat.id}/dosing-manual`, {
+                target: pumpTarget,
+                value: valueToSend
+            });
+        } catch (error) {
+            toast.error(`Gagal kontrol pompa: ${error.message}`);
+            // Gagal -> Rollback
+            if (pump === 'a') setSwitchA(!targetState);
+            else setSwitchB(!targetState);
+        }
+    };
+
+    const handleSettingChange = (e) => {
+        const { name, value } = e.target;
+        if (value === '') {
+            if (name === 'checkInterval_min') {
+                setSettings(prev => ({ ...prev, checkInterval_sec: '' }));
+            } else {
+                setSettings(prev => ({ ...prev, [name]: '' }));
+            }
+            return;
+        }
+        if (name === 'checkInterval_min') {
+            setSettings(prev => ({ ...prev, checkInterval_sec: Number(value) * 60 }));
+        } else {
+            setSettings(prev => ({ ...prev, [name]: Number(value) }));
+        }
+    };
+
+    const checkIntervalInMinutes = settings.checkInterval_sec === '' ? '' : Math.round(settings.checkInterval_sec / 60);
+
+    return (
+        <>
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-gray-50 w-full h-full max-w-6xl rounded-xl shadow-xl flex flex-col overflow-hidden">
+
+                    {/* --- Header --- */}
+                    <div className="flex-shrink-0 flex justify-between items-center border-b border-gray-200 p-5 bg-white">
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                                <FaTint className="text-blue-600" />
+                                Kontrol Dosing Nutrisi
+                            </h2>
+                            <p className="text-sm text-gray-500 mt-1">
+                                {alat.nama} • {alat.lokasi}
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => onEdit(alat)} className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium transition-colors flex items-center gap-2">
+                                <FaCog className="text-sm" /> Edit Info
+                            </button>
+                            <button onClick={onClose} className="p-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-700 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* --- Body Grid --- */}
+                    <div className="flex-grow p-5 overflow-auto grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+                        {/* == KOLOM KIRI == */}
+                        <div className="lg:col-span-1 space-y-5">
+                            <div className="bg-white rounded-lg shadow border border-gray-200 p-5">
+                                <h3 className="text-lg font-bold text-gray-800 mb-4 pb-3 border-b border-gray-200 flex items-center gap-2">
+                                    <FaChartLine className="text-blue-600" />
+                                    Status Real-Time
+                                </h3>
+                                {isLoadingRealtime ? (
+                                    <div className="flex flex-col items-center justify-center py-8 gap-3">
+                                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+                                        <span className="text-xs text-gray-400">Mengambil data terakhir...</span>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-3 p-4 bg-green-50 rounded-lg border border-green-200">
+                                            <div className="p-2 bg-green-500 rounded-lg">
+                                                <FaCrosshairs className="text-white h-6 w-6" />
+                                            </div>
+                                            <div className="flex-grow">
+                                                <span className="text-xs font-medium text-gray-600">PPM Saat Ini</span>
+                                                <p className="text-2xl font-bold text-gray-800">
+                                                    {/* Jika data masih null (belum ada di DB dan Socket belum kirim), tampilkan 0 atau - */}
+                                                    {realtimeData.tds_air !== null ? realtimeData.tds_air.toFixed(0) : "0"} 
+                                                    <span className="text-sm font-medium text-gray-600"> PPM</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                            <div className="p-2 bg-blue-500 rounded-lg">
+                                                <FaThermometerHalf className="text-white h-6 w-6" />
+                                            </div>
+                                            <div className="flex-grow">
+                                                <span className="text-xs font-medium text-gray-600">Suhu Air</span>
+                                                <p className="text-2xl font-bold text-gray-800">
+                                                    {realtimeData.suhu_air !== null ? realtimeData.suhu_air.toFixed(1) : "0"} 
+                                                    <span className="text-sm font-medium text-gray-600"> °C</span>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="p-3 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+                                            <p className="text-xs text-blue-800 flex items-center gap-2">
+                                                <FaInfoCircle /> {socketStatus}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="bg-white rounded-lg shadow border border-gray-200 p-5">
+                                <h3 className="text-lg font-bold text-gray-800 mb-4 pb-3 border-b border-gray-200 flex items-center gap-2">
+                                    <FaPowerOff className="text-purple-600" />
+                                    Kontrol Pompa Manual
+                                </h3>
+                                <div className="space-y-4">
+                                    <p className="text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200">
+                                        <strong>Perhatian:</strong> Tombol ini berfungsi sebagai Saklar ON/OFF. Pastikan mematikan pompa setelah selesai.
+                                    </p>
+                                    
+                                    {/* Switch A */}
+                                    <div className={`flex items-center justify-between p-3 rounded-lg border ${switchA ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`p-2 rounded-full ${switchA ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-500'}`}>
+                                                <FaTint />
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-gray-700 text-sm">Pompa A</p>
+                                                <p className="text-xs text-gray-500">{switchA ? 'Status: MENYALA' : 'Status: MATI'}</p>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => handleTogglePump('a')} className={`relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none ${switchA ? 'bg-blue-600' : 'bg-gray-300 hover:bg-gray-400'}`}>
+                                            <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${switchA ? 'translate-x-6' : 'translate-x-0'}`} />
+                                        </button>
+                                    </div>
+
+                                    {/* Switch B */}
+                                    <div className={`flex items-center justify-between p-3 rounded-lg border ${switchB ? 'bg-cyan-50 border-cyan-200' : 'bg-gray-50 border-gray-200'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`p-2 rounded-full ${switchB ? 'bg-cyan-500 text-white' : 'bg-gray-300 text-gray-500'}`}>
+                                                <FaTint />
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-gray-700 text-sm">Pompa B</p>
+                                                <p className="text-xs text-gray-500">{switchB ? 'Status: MENYALA' : 'Status: MATI'}</p>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => handleTogglePump('b')} className={`relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none ${switchB ? 'bg-cyan-600' : 'bg-gray-300 hover:bg-gray-400'}`}>
+                                            <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-300 ${switchB ? 'translate-x-6' : 'translate-x-0'}`} />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* == KOLOM KANAN: PENGATURAN OTOMATIS == */}
+                        <div className="lg:col-span-2">
+                            <div className="bg-white rounded-lg shadow border border-gray-200 p-6 h-full">
+                                <h3 className="text-xl font-bold text-gray-800 mb-5 pb-3 border-b border-gray-200 flex items-center gap-2">
+                                    <FaCog className="text-blue-600" />
+                                    Pengaturan Dosing Otomatis
+                                </h3>
+
+                                {isLoadingSettings ? (
+                                    <div className="flex items-center justify-center py-12">
+                                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-5">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                            {/* Jam Operasi */}
+                                            <div className="md:col-span-2 bg-purple-50 border border-purple-200 p-5 rounded-lg">
+                                                <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2 text-sm">
+                                                    <FaClock className="text-purple-600" /> Jam Operasi Otomatis
+                                                </h4>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label className="block text-xs font-semibold text-gray-700 mb-1">Jam Mulai</label>
+                                                        <select name="startTime_hour" value={settings.startTime_hour} onChange={handleSettingChange} className="w-full p-2 border border-purple-300 rounded-lg bg-white font-semibold text-gray-800 focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                                                            <option value="">Pilih</option>
+                                                            {hoursOptions}
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-semibold text-gray-700 mb-1">Jam Selesai</label>
+                                                        <select name="endTime_hour" value={settings.endTime_hour} onChange={handleSettingChange} className="w-full p-2 border border-purple-300 rounded-lg bg-white font-semibold text-gray-800 focus:ring-2 focus:ring-purple-500 focus:outline-none">
+                                                            <option value="">Pilih</option>
+                                                            {hoursOptions}
+                                                            <option value={0}>24:00</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Target PPM */}
+                                            <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
+                                                <label className="block text-xs font-bold text-gray-700 mb-2 flex items-center gap-2">
+                                                    <FaCrosshairs className="text-green-600" /> Target PPM
+                                                </label>
+                                                <div className="flex items-center gap-2">
+                                                    <input type="number" min="300" max="2500" step="50" name="targetPPM" value={settings.targetPPM} onChange={handleSettingChange} className="w-full p-2 border border-green-300 rounded-lg bg-white font-bold text-xl text-gray-800 focus:ring-2 focus:ring-green-500 focus:outline-none" />
+                                                    <span className="font-bold text-gray-600">PPM</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Durasi Pompa */}
+                                            <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                                                <label className="block text-xs font-bold text-gray-700 mb-2 flex items-center gap-2">
+                                                    <FaTint className="text-blue-600" /> Durasi Pompa
+                                                </label>
+                                                <div className="flex items-center gap-2">
+                                                    <input type="number" min="1" max="30" step="1" name="pumpDuration_sec" value={settings.pumpDuration_sec} onChange={handleSettingChange} className="w-full p-2 border border-blue-300 rounded-lg bg-white font-bold text-xl text-gray-800 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                                                    <span className="font-bold text-gray-600">detik</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Interval Cek */}
+                                            <div className="bg-amber-50 border border-amber-200 p-4 rounded-lg">
+                                                <label className="block text-xs font-bold text-gray-700 mb-2 flex items-center gap-2">
+                                                    <FaClock className="text-amber-600" /> Interval Cek
+                                                </label>
+                                                <div className="flex items-center gap-2">
+                                                    <input type="number" min="1" max="60" step="1" name="checkInterval_min" value={checkIntervalInMinutes} onChange={handleSettingChange} className="w-full p-2 border border-amber-300 rounded-lg bg-white font-bold text-xl text-gray-800 focus:ring-2 focus:ring-amber-500 focus:outline-none" />
+                                                    <span className="font-bold text-gray-600">menit</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Limit Harian */}
+                                            <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-lg">
+                                                <label className="block text-xs font-bold text-gray-700 mb-2 flex items-center gap-2">
+                                                    <FaPowerOff className="text-indigo-600" /> Limit Pompa Harian
+                                                </label>
+                                                <div className="flex items-center gap-2">
+                                                    <input type="number" name="dailyPumpLimit" min="0" max="100" value={settings.dailyPumpLimit} onChange={handleSettingChange} className="w-full p-2 border border-indigo-300 rounded-lg bg-white font-bold text-xl text-gray-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                                                    <span className="font-bold text-gray-600">kali</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <button 
+                                            onClick={handleSaveSettings} 
+                                            disabled={isSaving}
+                                            className={`w-full py-3 rounded-lg font-bold shadow transition-colors flex items-center justify-center gap-2 ${
+                                                isSaving ? 'bg-gray-400 cursor-not-allowed text-white' : 'bg-green-600 hover:bg-green-700 text-white'
+                                            }`}
+                                        >
+                                            {isSaving ? (
+                                                <>
+                                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                                    Menyimpan...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <FaSave /> Simpan Pengaturan Otomatis
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </>
+    );
+};
+
 // --- Komponen Modal Kontrol Irigasi ---
 const ModalKontrolIrigasi = ({ alat, onClose, onEdit }) => {
     const [daftarJadwal, setDaftarJadwal] = useState([]);
@@ -883,8 +1409,9 @@ const AlatPage = () => {
                             {selectedAlat && selectedAlat.jenis === 'Climate' && (
                                 <ModalKontrolClimate alat={selectedAlat} onClose={() => setSelectedAlat(null)} onEdit={handleEdit} />
                             )}
-                            {/* Tambahkan logika untuk jenis alat 'Dosing' di sini jika perlu */}
-                            {/* {selectedAlat && selectedAlat.jenis === 'Dosing' && ( ... )} */}
+                            {selectedAlat && selectedAlat.jenis === 'Dosing' && (
+                                <ModalKontrolDosing alat={selectedAlat} onClose={() => setSelectedAlat(null)} onEdit={handleEdit} />
+                            )}
                         </AnimatePresence>
                     </LayoutGroup> 
                 </div>

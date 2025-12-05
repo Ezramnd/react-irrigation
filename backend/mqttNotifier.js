@@ -1,6 +1,5 @@
 // backend/mqttNotifier.js
 
-// Variabel ini akan diisi oleh index.js
 let mqttClient = null;
 
 export const setMqttClient = (client) => {

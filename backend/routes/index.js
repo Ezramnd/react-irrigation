@@ -22,8 +22,11 @@ import {
     getControlMode,
     setControlMode
 } from "../controllers/ClimateScheduleController.js";
+import ClimateSettings from "../models/ClimateSettingsModel.js";
 import { getScheduleLogs } from "../controllers/LogController.js";
 import { forgotPassword, resetPassword } from "../controllers/Users.js";
+import db from "../config/Database.js";
+import Users from "../models/UserModel.js";
 
 const router = express.Router();
 
@@ -66,36 +69,52 @@ router.patch('/jadwal/:scheduleId', verifyToken, updateSchedule);
 router.get('/jadwal', verifyToken, getSchedules);
 // Rute untuk mendapatkan log jadwal
 router.get('/logs/schedule', verifyToken, getScheduleLogs);
-
-// ==========================================
-// --- RUTE CLIMATE (Tambahan Baru) ---
-// ==========================================
-
-// 1. Data & Chart (Historis)
-// Menggunakan param :deviceId sesuai controller
-router.get('/alat/:deviceId/climate-data', verifyToken, getClimateData);
-router.get('/alat/:deviceId/climate-chart', verifyToken, getClimateChartData);
-router.delete('/alat/:deviceId/climate-data', verifyToken, deleteClimateData);
-router.delete('/alat/:deviceId/climate-data/filtered', verifyToken, deleteFilteredClimateData);
-
-// 2. Kontrol Manual & Mode
-router.post('/alat/:deviceId/climate-manual', verifyToken, manualClimateControl);
-router.get('/alat/:deviceId/control-mode', verifyToken, getControlMode);
-router.patch('/alat/:deviceId/control-mode', verifyToken, setControlMode);
-
-// 3. Penjadwalan Climate
-router.get('/alat/:deviceId/climate-jadwal', verifyToken, getDeviceClimateSchedules);
-router.post('/alat/:deviceId/climate-jadwal', verifyToken, createClimateScheduleForDevice);
-router.patch('/climate-jadwal/:scheduleId', verifyToken, updateClimateSchedule);
-router.delete('/climate-jadwal/:scheduleId', verifyToken, deleteClimateSchedule);
-
-// 4. Pengaturan Treshold (Suhu Min/Max)
-// Perhatikan: Controller Anda menggunakan req.params.id untuk settings, jadi kita pakai :id
-router.get('/alat/:id/climate-settings', verifyToken, getClimateSettings);
-router.patch('/alat/:id/climate-settings', verifyToken, updateClimateSettings);
-
 // Rute untuk lupa password dan reset password
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password/:token', resetPassword);
+
+// --- Rute Climate dan Jadwal Climate ---
+router.get('/alat/:id/climate-settings', verifyToken, getClimateSettings);
+router.patch('/alat/:id/climate-settings', verifyToken, updateClimateSettings);
+
+// GET /alat/:deviceId/climate-jadwal
+router.get('/alat/:deviceId/climate-jadwal', verifyToken, getDeviceClimateSchedules);
+
+// POST /alat/:deviceId/climate-jadwal
+router.post('/alat/:deviceId/climate-jadwal', verifyToken, createClimateScheduleForDevice);
+
+// PATCH /climate-jadwal/:scheduleId
+router.patch('/climate-jadwal/:scheduleId', verifyToken, updateClimateSchedule);
+
+// DELETE /climate-jadwal/:scheduleId
+router.delete('/climate-jadwal/:scheduleId', verifyToken, deleteClimateSchedule);
+
+// (Opsional) Rute admin untuk melihat semua jadwal climate
+router.get('/climate-jadwal', verifyToken, adminOnly, getClimateSchedules);
+
+router.get('/alat/:deviceId/climate-data', verifyToken, getClimateData);
+
+router.get('/alat/:deviceId/climate-chart', verifyToken, getClimateChartData);
+
+router.delete('/alat/:deviceId/climate-data', verifyToken, deleteClimateData);
+
+router.delete('/alat/:deviceId/climate-data/filtered', verifyToken, deleteFilteredClimateData);
+
+router.get('/alat/:deviceId/climate-data/all', verifyToken, getAllClimateData);
+
+router.post('/alat/:deviceId/climate-manual', verifyToken, manualClimateControl);
+
+router.get('/alat/:deviceId/control-mode', verifyToken, getControlMode);
+router.patch('/alat/:deviceId/control-mode', verifyToken, setControlMode);
+
+Users.hasMany(Devices);
+Devices.belongsTo(Users, { foreignKey: 'userId' });
+
+// Relasi Device <-> ClimateSettings (One-to-One)
+Devices.hasOne(ClimateSettings, { foreignKey: 'deviceId' });
+ClimateSettings.belongsTo(Devices, { 
+    foreignKey: 'deviceId',
+    onDelete: 'CASCADE' 
+});
 
 export default router;

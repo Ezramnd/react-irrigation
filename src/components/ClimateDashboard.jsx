@@ -646,7 +646,35 @@ const ClimateDashboard = ({ deviceId, initialSchedules, initialSettings }) => {
         };
         fetchControlMode();
     }, [deviceId]);
+    useEffect(() => {
+        const fetchSettings = async () => {
+            if (!deviceId) return;
+            try {
+                const response = await api.get(`/alat/${deviceId}/climate-settings`, { 
+                    withCredentials: true 
+                });
+                
+                const data = response.data;
+                
+                if (data) {
+                    // KUNCI PERBAIKAN: Mapping nama dari Database ke Frontend
+                    // Backend mengirim: minSuhuKipas1
+                    // Frontend butuh: kipas1_min
+                    setThresholds({
+                        kipas1_min: data.minSuhuKipas1 || '--', 
+                        kipas1_max: data.maxSuhuKipas1 || '--',
+                        kipas2_min: data.minSuhuKipas2 || '--',
+                        kipas2_max: data.maxSuhuKipas2 || '--'
+                    });
+                }
+            } catch (error) {
+                console.error("Gagal mengambil settings treshold:", error);
+            }
+        };
 
+        fetchSettings();
+    }, [deviceId]);
+    
     const handleDeleteAllHistory = async () => {    
         if (!window.confirm("Apakah Anda yakin ingin menghapus SEMUA data historis climate untuk alat ini? Tindakan ini tidak dapat dibatalkan.")) {
             return;

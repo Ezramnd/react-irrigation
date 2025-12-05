@@ -37,7 +37,7 @@ export const io = new Server(server, {
         origin: [
             FRONTEND_URL
         ],
-        // methods: ["GET", "POST"]
+        methods: ["GET", "POST"]
     }
 });
 
@@ -299,11 +299,32 @@ mqttClient.on('message', async (topic, message) => {
 
             const data = JSON.parse(messageStr);
             
+            // 1. Ambil status TERAKHIR dari Database (Bukan dari variabel global server)
+            // Ini penting agar server 'sadar' jika baru saja ada perubahan manual via Controller
+            const lastLog = await ClimateData.findOne({
+                where: { deviceId: device.id },
+                order: [['createdAt', 'DESC']], // Ambil yang paling baru
+            });
+
+            // 2. Tentukan status default berdasarkan database terakhir
+            let finalKipas1 = lastLog ? lastLog.kipas1_status : "OFF";
+            let finalKipas2 = lastLog ? lastLog.kipas2_status : "OFF";
+
+            // 3. Jika paket data sensor MENGANDUNG status kipas, update statusnya.
+            // (Jika sensor hanya kirim suhu, status kipas tetap ikut database terakhir/Manual)
+            if (data.kipas1) finalKipas1 = data.kipas1;
+            if (data.kipas2) finalKipas2 = data.kipas2;
+
+            // 4. Update Socket IO agar tampilan frontend real-time
+            io.emit('update_relay_1', finalKipas1);
+            io.emit('update_relay_2', finalKipas2);
+
+            // 5. Simpan Log Baru
             const newClimateEntry = await ClimateData.create({
                 suhu: data.suhu,
                 kelembaban: data.kelembaban,
-                kipas1_status: lastRelay1State, 
-                kipas2_status: lastRelay2State, 
+                kipas1_status: finalKipas1, // Gunakan status yang sudah disinkronkan
+                kipas2_status: finalKipas2, 
                 deviceId: device.id 
             });
 

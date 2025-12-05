@@ -70,18 +70,55 @@ export const manualClimateControl = async (req, res) => {
             return res.status(403).json({ msg: "Perintah ditolak. Alat tidak dalam mode manual." });
         }
 
+       // 1. KIRIM MQTT (Logika Lama)
         const topic = createClimateManualTopicFromMac(device.macAddress);
         if (topic) {
-            // Payload persis seperti yang diterima dari body
-                const payload = { target, state };
-
-                publishScheduleUpdate(topic, payload); // publishScheduleUpdate bisa dipakai ulang
-
-                res.status(200).json({ msg: `Perintah ${state} untuk ${target} berhasil dikirim.` });
-
+            const payload = { target, state };
+            publishScheduleUpdate(topic, payload);
         } else {
-                res.status(400).json({ msg: "Alat tidak memiliki MAC Address." });
+            return res.status(400).json({ msg: "Alat tidak memiliki MAC Address." });
         }
+
+        // A. Ambil data terakhir untuk menjaga kontinuitas Suhu, Kelembaban, dan Kipas Lainnya
+        const lastData = await ClimateData.findOne({
+            where: { deviceId: deviceId },
+            order: [['createdAt', 'DESC']]
+        });
+
+        // Default value jika belum ada data sama sekali
+        let currentSuhu = 0;
+        let currentKelembaban = 0;
+        let statusKipas1 = 'OFF';
+        let statusKipas2 = 'OFF';
+
+        if (lastData) {
+            currentSuhu = lastData.suhu;
+            currentKelembaban = lastData.kelembaban;
+            statusKipas1 = lastData.kipas1_status;
+            statusKipas2 = lastData.kipas2_status;
+        }
+
+        // B. Update status kipas yang ditargetkan
+        if (target === 'fan1') {
+            statusKipas1 = state; // Update Kipas 1 sesuai request (ON/OFF)
+        } else if (target === 'fan2') {
+            statusKipas2 = state; // Update Kipas 2 sesuai request (ON/OFF)
+        }
+
+        // C. Buat baris baru di database
+        await ClimateData.create({
+            deviceId: deviceId,
+            suhu: currentSuhu,
+            kelembaban: currentKelembaban,
+            kipas1_status: statusKipas1,
+            kipas2_status: statusKipas2
+        });
+
+        console.log(`[Manual Control] Status ${target} disimpan ke DB: ${state}`);
+
+        // ============================================================
+
+        res.status(200).json({ msg: `Perintah ${state} untuk ${target} berhasil dikirim dan disimpan.` });
 
     } catch (error) {
         res.status(500).json({ msg: error.message });

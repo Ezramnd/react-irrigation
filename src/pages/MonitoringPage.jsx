@@ -10,7 +10,7 @@ import MainLayout from '../components/MainLayout';
 
 
 // Terhubung ke server Socket.IO
-const socket = io(`http://localhost:3020`);
+const socket = io(`https://37.44.244.108:3020`);
 
 // Komponen kecil untuk badge status agar lebih rapi
 const StatusBadge = ({ status }) => {

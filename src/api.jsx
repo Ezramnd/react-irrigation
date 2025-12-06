@@ -4,7 +4,7 @@ import axios from 'axios';
 const api = axios.create({
     // INI BAGIAN YANG PALING PENTING:
     // Pastikan ini adalah alamat server backend Anda
-    baseURL: `http://localhost:3020`,
+    baseURL: `https://37.44.244.108:3020`,
     withCredentials: true 
 });
 

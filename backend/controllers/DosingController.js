@@ -11,7 +11,7 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const createDosingTopic = (macAddress, subTopic) => {
     if (!macAddress) return null;
     let topicMac = macAddress.trim().toUpperCase().replace(/:/g, '-');
-    return `azismaulana/esp32/alat/${topicMac}/dosing/${subTopic}`; 
+    return `ezramnd/esp32/alat/${topicMac}/dosing/${subTopic}`; 
 }
 
 // 1. AMBIL PENGATURAN
@@ -50,16 +50,17 @@ export const getDosingSettings = async (req, res) => {
 };
 
 // 2. UPDATE PENGATURAN
+// 2. UPDATE PENGATURAN (SUDAH DIPERBAIKI)
 export const updateDosingSettings = async (req, res) => {
     try {
         const { id } = req.params; 
         const deviceId = id;
 
-        // Ambil semua kemungkinan nama variabel
+        // Ambil data dari Frontend
         const {
             targetPPM, pumpDuration_sec, checkInterval_sec,
-            startTime, startTime_hour, // Backend siap terima dua-duanya
-            endTime, endTime_hour,     // Backend siap terima dua-duanya
+            startTime, startTime_hour, 
+            endTime, endTime_hour,     
             dailyPumpLimit
         } = req.body;
 
@@ -70,16 +71,17 @@ export const updateDosingSettings = async (req, res) => {
             return res.status(403).json({ msg: "Akses ditolak" });
         }
 
+        // --- 1. PERSIAPAN DATA DATABASE ---
         const dbData = {};
         if (targetPPM !== undefined) dbData.targetPPM = targetPPM;
+        // Simpan ke DB dalam menit (sesuai logika lama Anda), tapi ingat nilai aslinya detik
         if (checkInterval_sec !== undefined) dbData.checkInterval = Math.round(checkInterval_sec / 60); 
         if (pumpDuration_sec !== undefined) dbData.pumpDuration = pumpDuration_sec;
         if (dailyPumpLimit !== undefined) dbData.dailyPumpLimit = dailyPumpLimit;
         
-        // --- LOGIKA CERDAS JAM MULAI ---
-        const valStart = startTime || startTime_hour; // Ambil mana yang ada
+        // Logika Jam Mulai
+        const valStart = startTime || startTime_hour;
         if (valStart !== undefined) {
-            // Jika sudah ada titik dua (format "04:00:00"), pakai langsung. Jika belum, format dulu.
             if (String(valStart).includes(':')) {
                 dbData.startTime = valStart;
             } else {
@@ -87,8 +89,8 @@ export const updateDosingSettings = async (req, res) => {
             }
         }
 
-        // --- LOGIKA CERDAS JAM SELESAI ---
-        const valEnd = endTime || endTime_hour; // Ambil mana yang ada
+        // Logika Jam Selesai
+        const valEnd = endTime || endTime_hour;
         if (valEnd !== undefined) {
             if (String(valEnd).includes(':')) {
                 dbData.endTime = valEnd;
@@ -97,29 +99,55 @@ export const updateDosingSettings = async (req, res) => {
             }
         }
         
-        // Simpan ke Database
+        // --- 2. SIMPAN KE DATABASE ---
         const [settings, created] = await DosingSettings.findOrCreate({
             where: { deviceId: deviceId },
             defaults: { deviceId: deviceId }
         });
         await settings.update(dbData);
         
-        // PUBLISH KE MQTT (Kirim Angka Saja ke ESP32)
+        // --- 3. PUBLISH KE MQTT (BAGIAN INI YANG KEMARIN HILANG) ---
         if (device.macAddress) {
             console.log(`[MQTT] Update Setting MAC: ${device.macAddress}`);
 
-            // Kirim hanya JAM-nya saja (int) ke ESP32
+            // A. Kirim Target PPM
+            if (targetPPM !== undefined) {
+                publishScheduleUpdate(createDosingTopic(device.macAddress, "set/target_ppm"), String(targetPPM));
+                await delay(200); // Beri jeda sedikit agar ESP32 tidak 'keselek'
+            }
+
+            // B. Kirim Durasi Pompa (Detik)
+            if (pumpDuration_sec !== undefined) {
+                publishScheduleUpdate(createDosingTopic(device.macAddress, "set/pump_duration"), String(pumpDuration_sec));
+                await delay(200);
+            }
+
+            // C. Kirim Interval Cek (Detik)
+            // Catatan: Pastikan ESP32 Anda mengharapkan detik. Jika menit, ganti ke (checkInterval_sec / 60)
+            if (checkInterval_sec !== undefined) {
+                publishScheduleUpdate(createDosingTopic(device.macAddress, "set/check_interval"), String(checkInterval_sec));
+                await delay(200);
+            }
+
+            // D. Kirim Limit Harian
+            if (dailyPumpLimit !== undefined) {
+                publishScheduleUpdate(createDosingTopic(device.macAddress, "set/pump_limit"), String(dailyPumpLimit));
+                await delay(200);
+            }
+
+            // E. Kirim Jam Mulai (Ambil jam saja, misal "8")
             if (dbData.startTime) {
                 const hourOnly = parseInt(dbData.startTime.split(':')[0], 10);
                 publishScheduleUpdate(createDosingTopic(device.macAddress, "set/start_time_hour"), String(hourOnly));
-                await delay(500);
+                await delay(200);
             }
+
+            // F. Kirim Jam Selesai
             if (dbData.endTime) {
                 const hourOnly = parseInt(dbData.endTime.split(':')[0], 10);
                 publishScheduleUpdate(createDosingTopic(device.macAddress, "set/end_time_hour"), String(hourOnly));
-                await delay(500);
+                await delay(200);
             }
-            // ... (Sisa publish MQTT untuk PPM dll biarkan sama) ...
         }
 
         return getDosingSettings(req, res); 

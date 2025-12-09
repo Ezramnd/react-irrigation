@@ -59,8 +59,10 @@ DosingData.belongsTo(Devices, { foreignKey: 'deviceId' });
 // ==========================================
 
 // 1. VARIABLE DOSING (AZIS) - INI YANG KEMARIN ERROR (MISSING)
-// Format: { "mac_address": { pumpA: "OFF", pumpB: "OFF", tempSuhu: 0, tempTDS: 0 } }
 const dosingStates = {}; 
+// --- TAMBAHAN BARU (INTERVAL 1 MENIT- 9 DES) ---
+const dosingLastSaveTime = {}; // Menyimpan waktu terakhir save per device ID
+const DOSING_SAVE_INTERVAL_MS = 60 * 1000; // 1 Menit (60.000 ms)
 
 // 2. VARIABLE CLIMATE (HAFIZH)
 let lastRelay1State = "OFF";
@@ -149,7 +151,7 @@ mqttClient.on('connect', () => {
     mqttClient.subscribe("hafizh11/esp32/alat/+/status");
 
     // Subscribe Topik Dosing (Azis)
-    const dosingTopic = "azismaulana/esp32/alat/+/dosing/#"; 
+    const dosingTopic = "ezramnd/esp32/alat/+/dosing/#"; 
     mqttClient.subscribe(dosingTopic, (err) => {
         if (!err) console.log(`✅ Berhasil subscribe ke Dosing System: ${dosingTopic}`);
         else console.error(`❌ Gagal subscribe Dosing:`, err);
@@ -166,7 +168,7 @@ mqttClient.on('message', async (topic, message) => {
     // --------------------------------------------------------
     // 1. LOGIKA DOSING SYSTEM (AZIS) - FIXED SPLIT TOPIC
     // --------------------------------------------------------
-    if (topicStr.startsWith("azismaulana/esp32/alat/") && topicStr.includes("/dosing/")) {
+    if (topicStr.startsWith("ezramnd/esp32/alat/") && topicStr.includes("/dosing/")) {
         
         try {
             // Ambil MAC Address
@@ -188,34 +190,53 @@ mqttClient.on('message', async (topic, message) => {
                 io.emit('update_suhu', { mac: macAddress, value: suhuVal });
             }
 
-            // B. DATA TDS (Gabung dengan Suhu -> Simpan DB)
+            // B. DATA TDS (LOGIKA INTERVAL 1 MENIT)
             else if (topicStr.endsWith("/dosing/data/tds_air")) {
                 const tdsVal = parseFloat(messageStr);
+                
+                // 1. Update Memori Sementara
                 dosingStates[macAddress].tempTDS = tdsVal;
 
-                console.log(`💧 [DOSING] TDS Masuk: ${tdsVal}. Menyimpan ke DB...`);
+                // 2. SELALU Kirim ke Socket.IO (Agar Website Real-time)
+                // console.log(`💧 [REALTIME] TDS: ${tdsVal}`); 
                 io.emit('update_tds', { mac: macAddress, value: tdsVal });
 
-                // GABUNGKAN DATA
-                const dataToSave = {
-                    tds: dosingStates[macAddress].tempTDS,
-                    suhu: dosingStates[macAddress].tempSuhu, // Ambil suhu dari memori
-                    pa: dosingStates[macAddress].pumpA,
-                    pb: dosingStates[macAddress].pumpB
-                };
-
+                // 3. LOGIKA INTERVAL PENYIMPANAN DATABASE
                 const device = await Devices.findOne({ where: { macAddress: macAddress } });
                 
                 if (device) {
-                    await DosingData.create({
-                        deviceId: device.id,
-                        tds_air: dataToSave.tds,
-                        suhu_air: dataToSave.suhu,
-                        pompa_a_status: dataToSave.pa,
-                        pompa_b_status: dataToSave.pb
-                    });
-                    console.log(`💾 [SUKSES] Data Tersimpan. ID Device: ${device.id}`);
-                    io.emit('new_dosing_data'); 
+                    const currentTime = Date.now();
+                    const lastSave = dosingLastSaveTime[device.id] || 0; // Waktu simpan terakhir
+
+                    // Cek: Apakah sudah berlalu 1 Menit (60.000ms) sejak simpan terakhir?
+                    if (currentTime - lastSave >= DOSING_SAVE_INTERVAL_MS) {
+                        
+                        // Siapkan Data
+                        const dataToSave = {
+                            tds: dosingStates[macAddress].tempTDS,
+                            suhu: dosingStates[macAddress].tempSuhu,
+                            pa: dosingStates[macAddress].pumpA,
+                            pb: dosingStates[macAddress].pumpB
+                        };
+
+                        // Simpan ke Database
+                        await DosingData.create({
+                            deviceId: device.id,
+                            tds_air: dataToSave.tds,
+                            suhu_air: dataToSave.suhu,
+                            pompa_a_status: dataToSave.pa,
+                            pompa_b_status: dataToSave.pb
+                        });
+
+                        // Update Waktu Simpan Terakhir menjadi SEKARANG
+                        dosingLastSaveTime[device.id] = currentTime;
+
+                        console.log(`💾 [DATABASE] Data Dosing Tersimpan (Interval 1 Menit). ID: ${device.id}`);
+                        io.emit('new_dosing_data'); // Trigger tabel history di frontend refresh
+                    } else {
+                        // Jika belum 1 menit, abaikan penyimpanan DB (hanya update RAM/Socket)
+                        // console.log(`⏩ [SKIP DB] Belum 1 menit.`);
+                    }
                 } else {
                     console.error(`⛔ [ERROR] Device MAC ${macAddress} tidak ditemukan di Database!`);
                 }

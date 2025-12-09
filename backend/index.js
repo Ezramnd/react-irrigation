@@ -26,6 +26,10 @@ const MQTT_BROKER_URL = process.env.MQTT_BROKER_URL || 'mqtts://broker.avisha.id
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 const PORT = process.env.PORT || 5000;
 
+// ----------8DES---------------
+const deviceLastSaveTime = {}; // Format: { 'deviceId': timestamp }
+const SAVE_INTERVAL_MS = 30000;
+// ----------8DES---------------
 
 const app = express();
 const server = http.createServer(app);
@@ -98,7 +102,7 @@ try {
 app.use(cors({
     credentials: true,
     origin: [
-        FRONTEND_URL, "http://localhost:5173", "http://192.168.1.29:8081", "http://localhost:8081", "http://localhost:5000"
+        FRONTEND_URL, "http://localhost:5173", "http://192.168.1.23:8081", "http://localhost:8081", "http://localhost:5000"
         // Tambahkan origin ini
     ]
 })); 
@@ -287,7 +291,8 @@ mqttClient.on('message', async (topic, message) => {
         try {
             const macAddressWithHyphen = topicStr.split('/')[4]; 
             const macAddress = macAddressWithHyphen.replace(/-/g, ':');
-            console.log(`[Debug] Mencari device dengan MAC (format colon): ${macAddress}`);
+
+            // console.log(`[Debug] Mencari device dengan MAC (format colon): ${macAddress}`);
 
             const device = await Devices.findOne({ where: { macAddress: macAddress } });
             if (!device) {
@@ -299,53 +304,58 @@ mqttClient.on('message', async (topic, message) => {
 
             const data = JSON.parse(messageStr);
             
-            // 1. Ambil status TERAKHIR dari Database (Bukan dari variabel global server)
-            // Ini penting agar server 'sadar' jika baru saja ada perubahan manual via Controller
             const lastLog = await ClimateData.findOne({
                 where: { deviceId: device.id },
                 order: [['createdAt', 'DESC']], // Ambil yang paling baru
             });
 
-            // 2. Tentukan status default berdasarkan database terakhir
+            // Tentukan status default berdasarkan database terakhir
             let finalKipas1 = lastLog ? lastLog.kipas1_status : "OFF";
             let finalKipas2 = lastLog ? lastLog.kipas2_status : "OFF";
 
-            // 3. Jika paket data sensor MENGANDUNG status kipas, update statusnya.
-            // (Jika sensor hanya kirim suhu, status kipas tetap ikut database terakhir/Manual)
             if (data.kipas1) finalKipas1 = data.kipas1;
             if (data.kipas2) finalKipas2 = data.kipas2;
 
-            // 4. Update Socket IO agar tampilan frontend real-time
+            // --------------8DES---------------------
+            lastRelay1State = finalKipas1;
+            lastRelay2State = finalKipas2;
+
             io.emit('update_relay_1', finalKipas1);
             io.emit('update_relay_2', finalKipas2);
-
-            // 5. Simpan Log Baru
-            const newClimateEntry = await ClimateData.create({
-                suhu: data.suhu,
-                kelembaban: data.kelembaban,
-                kipas1_status: finalKipas1, // Gunakan status yang sudah disinkronkan
-                kipas2_status: finalKipas2, 
-                deviceId: device.id 
-            });
-
-            console.log(`✅ Data sensor dari ${macAddress} (ID: ${device.id}) berhasil disimpan.`);
-
             io.emit('update_suhu', data.suhu);
             io.emit('update_kelembaban', data.kelembaban);
-            io.emit('new_historical_data');
-            io.emit('new_climate_data', newClimateEntry);
-            
+
+            const currentTime = Date.now();
+            const lastSave = deviceLastSaveTime[device.id] || 0;
+
+            if (currentTime - lastSave >= SAVE_INTERVAL_MS) {
+                const newClimateEntry = await ClimateData.create({
+                    suhu: data.suhu,
+                    kelembaban: data.kelembaban,
+                    kipas1_status: finalKipas1, 
+                    kipas2_status: finalKipas2, 
+                    deviceId: device.id 
+                });
+                
+                deviceLastSaveTime[device.id] = currentTime;
+                
+                io.emit('new_historical_data');
+                io.emit('new_climate_data', newClimateEntry);
+
+            console.log(`💾 [DATABASE] Data tersimpan untuk ${device.nama} (Interval > 30s).`);
+            } else {
+                console.log(`⏩ [SKIP DB] Data diterima tapi belum 30s (${device.nama}). Socket.IO tetap update.`);
+            }
         } catch (error) {
             console.error(`Gagal memproses/menyimpan data sensor dari ${topicStr}:`, error.message);
         }
         return; 
         }
 });
-
+// ---------------8DES-----------------------
 
 mqttClient.on('error', (err) => console.error('❌ Error MQTT:', err));
 mqttClient.on('reconnect', () => console.log('🔄 Mencoba rekoneksi MQTT...'));
 
-// Kita tidak lagi butuh on('message') atau Socket.IO di sini
 server.listen(PORT, () => console.log(`🚀 Server berjalan di ${process.env.APP_URL}:${PORT}`));
 

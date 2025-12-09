@@ -20,22 +20,19 @@ const createClimateManualTopicFromMac = (macAddress) => {
 const createClimateTopicFromMac = (macAddress) => {
     if (!macAddress) return null;
     let topicMac = macAddress.replace(/:/g, '-');
-    // Topik baru yang spesifik untuk jadwal climate
-    return `${process.env.MQTT_user}/climate/esp32/alat/${topicMac}/climate-jadwal/set`; 
+    return `climate/esp32/alat/${topicMac}/climate-jadwal/set`; //8DES 
 }
 
 const createClimateSettingsTopicFromMac = (macAddress) => {
     if (!macAddress) return null;
     let topicMac = macAddress.replace(/:/g, '-');
-    // Topik baru yang spesifik untuk treshold/settings
-    return `${process.env.MQTT_user}/climate/esp32/alat/${topicMac}/climate-settings/set`; 
+    return `climate/esp32/alat/${topicMac}/climate-settings/set`; //8DES
 }
 
 const createClimateModeTopicFromMac = (macAddress) => {
     if (!macAddress) return null;
     let topicMac = macAddress.replace(/:/g, '-');
-    // Topik baru yang spesifik untuk mode
-    return `${process.env.MQTT_user}/climate/esp32/alat/${topicMac}/climate-mode/set`; 
+    return `climate/esp32/alat/${topicMac}/climate-mode/set`; //8DES
 }
 
 export const manualClimateControl = async (req, res) => {
@@ -53,7 +50,6 @@ export const manualClimateControl = async (req, res) => {
         const device = await Devices.findByPk(deviceId);
         if (!device) return res.status(404).json({ msg: "Alat tidak ditemukan" });
 
-        // --- TAMBAHKAN LOG INI UNTUK DEBUGGING ---
         console.log("DEBUG MANUAL CONTROL:");
         console.log("Device ID:", deviceId);
         console.log("Current Mode in DB:", device.controlMode);
@@ -70,7 +66,6 @@ export const manualClimateControl = async (req, res) => {
             return res.status(403).json({ msg: "Perintah ditolak. Alat tidak dalam mode manual." });
         }
 
-       // 1. KIRIM MQTT (Logika Lama)
         const topic = createClimateManualTopicFromMac(device.macAddress);
         if (topic) {
             const payload = { target, state };

@@ -23,7 +23,7 @@ import {
     setControlMode
 } from "../controllers/ClimateScheduleController.js";
 
-// <-- [BARU] Impor Dosing Controller
+// Impor Dosing Controller
 import {
     getDosingSettings,
     updateDosingSettings,
@@ -32,12 +32,11 @@ import {
     getLatestDosingData,
     getDosingChartData,
     getAllDosingData,
-    deleteDosingData,          // <--- TAMBAHAN BARU
-    deleteFilteredDosingData // Pastikan ini ada
+    deleteDosingData,          
+    deleteFilteredDosingData 
 } from "../controllers/DosingController.js";
 
 import ClimateSettings from "../models/ClimateSettingsModel.js";
-// <-- [BARU] Impor Dosing Model
 import DosingSettings from "../models/DosingSettingsModel.js";
 import DosingData from "../models/DosingDataModel.js";
 
@@ -100,7 +99,7 @@ router.get('/alat/:deviceId/control-mode', verifyToken, getControlMode);
 router.patch('/alat/:deviceId/control-mode', verifyToken, setControlMode);
 
 
-// --- [BARU & PERBAIKAN PENTING] Rute Dosing ---
+// --- Rute Dosing ---
 router.get('/alat/:id/dosing-settings', verifyToken, getDosingSettings);
 router.patch('/alat/:id/dosing-settings', verifyToken, updateDosingSettings);
 router.post('/alat/:id/dosing-manual', verifyToken, manualDosingControl);
@@ -123,14 +122,12 @@ ClimateSettings.belongsTo(Devices, {
 });
 
 // <-- [BARU] Relasi Dosing -->
-// Relasi Device <-> DosingSettings (One-to-One)
 Devices.hasOne(DosingSettings, { foreignKey: 'deviceId' });
 DosingSettings.belongsTo(Devices, { 
     foreignKey: 'deviceId',
     onDelete: 'CASCADE' 
 });
 
-// Relasi Device <-> DosingData (One-to-Many)
 Devices.hasMany(DosingData, { foreignKey: 'deviceId' });
 DosingData.belongsTo(Devices, { 
     foreignKey: 'deviceId',

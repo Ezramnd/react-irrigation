@@ -731,12 +731,6 @@ const ModalKontrolDosing = ({ alat, onClose, onEdit }) => {
 
             try {
 
-                // ... (Logika fetch settings & data terakhir biarkan sama) ...
-
-                // Pastikan kode fetch API Anda tetap ada di sini
-
-                // Saya ringkas agar fokus ke perbaikan error socket
-
                 const resSettings = await api.get(`/alat/${alat.id}/dosing-settings`);
 
                 if (resSettings.data) {
@@ -846,8 +840,6 @@ const ModalKontrolDosing = ({ alat, onClose, onEdit }) => {
         // 2. PERBAIKAN VARIABEL payloadMac
 
         socket.on("update_tds", (payload) => {
-
-            // Error Anda terjadi karena baris ini hilang/salah posisi sebelumnya:
 
             const payloadMac = normalizeMac(payload.mac);
 

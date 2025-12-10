@@ -2,20 +2,25 @@ import React, { useState, useEffect } from 'react';
 import io from 'socket.io-client';
 import api from '../api';
 import RealtimeApexChart from "./RealtimeApexChart"; 
-import { FaTint, FaThermometerHalf, FaCrosshairs, FaHandPaper, FaClock, FaInfoCircle } from 'react-icons/fa';
+import { FaTint, FaThermometerHalf, FaCrosshairs, FaHandPaper, FaClock, FaInfoCircle, FaExclamationCircle, FaCheckCircle } from 'react-icons/fa';
 import { FiDownload, FiChevronLeft, FiChevronRight, FiTrash2 } from 'react-icons/fi';
 
-const socket = io('http://localhost:5000'); 
+// Hapus inisialisasi socket di luar agar tidak double connection saat re-render
+// const socket = io('http://localhost:5000'); 
 
 // --- KOMPONEN REUSABLE ---
 
 const StatCard = ({ icon, title, value, unit, statusInfo = null }) => {
   const isStatusCard = statusInfo !== null;
+  
+  // UPDATE: Menambahkan definisi warna 'red' untuk status Offline
   const colorClasses = {
     green: { text: 'text-green-600', bg: 'bg-green-100', border: 'border-green-200' },
-    gray: { text: 'text-gray-500', bg: 'bg-gray-100', border: 'border-gray-200' },
-    blue: { text: 'text-blue-600', bg: 'bg-blue-100', border: 'border-blue-200' },
+    gray:  { text: 'text-gray-500', bg: 'bg-gray-100',  border: 'border-gray-200' },
+    blue:  { text: 'text-blue-600', bg: 'bg-blue-100',  border: 'border-blue-200' },
+    red:   { text: 'text-red-600',  bg: 'bg-red-100',   border: 'border-red-200' }, // Warna Baru
   };
+  
   const currentStatusColor = statusInfo ? (colorClasses[statusInfo.color] || colorClasses.gray) : colorClasses.gray;
 
   return (
@@ -27,16 +32,24 @@ const StatCard = ({ icon, title, value, unit, statusInfo = null }) => {
             <h2 className={`font-bold text-gray-900 ${isStatusCard ? 'text-2xl' : 'text-4xl'}`}>
               {value}
             </h2>
-            {!  isStatusCard && <span className="text-gray-400 text-sm font-medium">{unit}</span>}
+            {!isStatusCard && <span className="text-gray-400 text-sm font-medium">{unit}</span>}
           </div>
           {isStatusCard && (
             <div className={`flex items-center mt-3 px-3 py-1 rounded-full w-fit ${currentStatusColor.bg} border ${currentStatusColor.border}`}>
-              <span className={`inline-block h-2 w-2 rounded-full mr-2 ${statusInfo.  color === 'green' ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+              {/* Dot Indikator */}
+              <span className={`inline-block h-2 w-2 rounded-full mr-2 ${
+                  statusInfo.color === 'green' ? 'bg-green-500' : 
+                  statusInfo.color === 'blue' ? 'bg-blue-500' : 
+                  statusInfo.color === 'red' ? 'bg-red-500' : 'bg-gray-400'
+              }`}></span>
               <span className={`text-xs font-bold ${currentStatusColor.text}`}>{statusInfo.text}</span>
             </div>
           )}
         </div>
-        <div className="p-4 rounded-xl bg-blue-50 text-blue-600 text-2xl">
+        <div className={`p-4 rounded-xl text-2xl ${
+            // Ubah warna background icon jika Offline (Red)
+            isStatusCard && statusInfo.color === 'red' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'
+        }`}>
           {icon}
         </div>
       </div>
@@ -44,14 +57,18 @@ const StatCard = ({ icon, title, value, unit, statusInfo = null }) => {
   );
 };
 
-const ToggleSwitch = ({ label, isEnabled, onToggle }) => {
+const ToggleSwitch = ({ label, isEnabled, onToggle, disabled }) => {
   return (
     <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
       <span className="text-gray-700 font-medium text-sm">{label}</span>
       <button 
-        onClick={() => onToggle(!isEnabled)}
-        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-          isEnabled ?   'bg-green-500' : 'bg-gray-300'
+        // Cegah klik jika disabled (sedang loading)
+        onClick={() => !disabled && onToggle(!isEnabled)}
+        disabled={disabled}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-200 ${
+          // Ubah warna/opacity jika disabled
+          disabled ? 'opacity-50 cursor-not-allowed bg-gray-200' : 
+          isEnabled ? 'bg-green-500' : 'bg-gray-300'
         }`}
       >
         <span className={`${isEnabled ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`} />
@@ -61,23 +78,28 @@ const ToggleSwitch = ({ label, isEnabled, onToggle }) => {
 };
 
 // --- KOMPONEN KARTU KONTROL & SETTING ---
-
-const DosingManualControlCard = ({ statusPompaA, statusPompaB, onControl }) => {
+const DosingManualControlCard = ({ statusPompaA, statusPompaB, onControl, isProcessing }) => {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <h2 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
         <FaHandPaper className="text-blue-500" /> Kontrol Manual
+        {/* Indikator Loading Kecil (Opsional) */}
+        {isProcessing && <span className="text-xs text-gray-400 font-normal animate-pulse">(Memproses...)</span>}
       </h2>
       <div className="space-y-1">
         <ToggleSwitch 
           label="Pompa Nutrisi A" 
-          isEnabled={statusPompaA.  value === 'Aktif'} 
-          onToggle={(val) => onControl('pumpA', val ?   'ON' : 'OFF')} 
+          isEnabled={statusPompaA.value === 'Aktif'} 
+          // Kirim status disabled
+          disabled={isProcessing} 
+          onToggle={(val) => onControl('pumpA', val ? 'ON' : 'OFF')} 
         />
         <ToggleSwitch 
           label="Pompa Nutrisi B" 
-          isEnabled={statusPompaB. value === 'Aktif'} 
-          onToggle={(val) => onControl('pumpB', val ?  'ON' : 'OFF')} 
+          isEnabled={statusPompaB.value === 'Aktif'} 
+          // Kirim status disabled
+          disabled={isProcessing}
+          onToggle={(val) => onControl('pumpB', val ? 'ON' : 'OFF')} 
         />
       </div>
     </div>
@@ -111,7 +133,7 @@ const SettingsDisplayCard = ({ settings }) => {
         </div>
         <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
           <div className="text-xs text-gray-600 mb-1 uppercase font-bold">Interval</div>
-          <div className="text-2xl font-bold text-amber-700">{settings.  checkInterval_sec ?    Math.round(settings.checkInterval_sec / 60) : '--'}<span className="text-xs ml-1">Menit</span></div>
+          <div className="text-2xl font-bold text-amber-700">{settings.checkInterval_sec ? Math.round(settings.checkInterval_sec / 60) : '--'}<span className="text-xs ml-1">Menit</span></div>
         </div>
         <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
           <div className="text-xs text-gray-600 mb-1 uppercase font-bold">Limit Pompa Harian</div>
@@ -135,7 +157,7 @@ const DosingDataTable = ({ data, isLoading, currentPage, totalPages, onPageChang
     setIsDownloading(true);
     try {
       await api.get(`/alat/${deviceId}/dosing-data/all`, { withCredentials: true });
-      alert("Fitur Download CSV Berjalan (Cek Console Backend untuk implementasi file)");
+      alert("Fitur Download CSV Berjalan");
     } catch (error) { 
       alert("Gagal download"); 
     } finally { 
@@ -198,23 +220,23 @@ const DosingDataTable = ({ data, isLoading, currentPage, totalPages, onPageChang
                     <div className="font-medium text-gray-900">{formatDate(row.createdAt)}</div>
                     <div className="text-xs text-gray-500">{formatTime(row.createdAt)}</div>
                   </td>
-                  <td className="px-6 py-4 font-bold text-gray-700">{parseFloat(row.tds_air).  toFixed(0)}</td>
-                  <td className="px-6 py-4 text-gray-600">{parseFloat(row.suhu_air). toFixed(1)}</td>
+                  <td className="px-6 py-4 font-bold text-gray-700">{parseFloat(row.tds_air).toFixed(0)}</td>
+                  <td className="px-6 py-4 text-gray-600">{parseFloat(row.suhu_air).toFixed(1)}</td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 rounded text-xs font-bold ${row.pompa_a_status === 'ON' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {row.  pompa_a_status || 'OFF'}
+                      {row.pompa_a_status || 'OFF'}
                     </span>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 rounded text-xs font-bold ${row.pompa_b_status === 'ON' ? 'bg-cyan-100 text-cyan-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {row. pompa_b_status || 'OFF'}
+                      {row.pompa_b_status || 'OFF'}
                     </span>
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="5" className="px-6 py-8 text-center text-gray-400 italic">Belum ada data terekam. </td>
+                <td colSpan="5" className="px-6 py-8 text-center text-gray-400 italic">Belum ada data terekam.</td>
               </tr>
             )}
           </tbody>
@@ -242,11 +264,15 @@ const DosingDataTable = ({ data, isLoading, currentPage, totalPages, onPageChang
   );
 };
 
-// --- MAIN COMPONENT ---
+// --- MAIN COMPONENT DASHBOARD ---
 
 const DosingDashboard = ({ deviceId }) => {
   const [tds, setTds] = useState(0);
   const [suhu, setSuhu] = useState(0);
+  
+  // STATE BARU: Untuk Status Online/Offline
+  const [isOnline, setIsOnline] = useState(false);
+
   const [statusPompaA, setStatusPompaA] = useState({ value: 'Non-Aktif', statusInfo: { text: 'Standby', color: 'gray' } });
   const [statusPompaB, setStatusPompaB] = useState({ value: 'Non-Aktif', statusInfo: { text: 'Standby', color: 'gray' } });
   const [chartSeriesData, setChartSeriesData] = useState([]); 
@@ -257,20 +283,21 @@ const DosingDashboard = ({ deviceId }) => {
   const [totalPages, setTotalPages] = useState(0);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [refetchTrigger, setRefetchTrigger] = useState(0);
+  const [isProcessingPump, setIsProcessingPump] = useState(false);
 
-  // Initial Fetch (Settings & Chart)
+  // 1. Initial Fetch (Settings & Chart)
   useEffect(() => {
-    if(!  deviceId) return;
+    if(!deviceId) return;
     const fetchData = async () => {
       try {
         const resSettings = await api.get(`/alat/${deviceId}/dosing-settings`, { withCredentials: true });
         setSettings(resSettings.data || {});
 
-        const resChart = await api.  get(`/alat/${deviceId}/dosing-chart`, { withCredentials: true });
-        const chartData = resChart.data.  reverse();
+        const resChart = await api.get(`/alat/${deviceId}/dosing-chart`, { withCredentials: true });
+        const chartData = resChart.data.reverse();
         
-        const tdsSeries = chartData.map(d => [new Date(d.createdAt).  getTime(), d.tds_air]);
-        const suhuSeries = chartData.map(d => [new Date(d.createdAt). getTime(), d.suhu_air]);
+        const tdsSeries = chartData.map(d => [new Date(d.createdAt).getTime(), d.tds_air]);
+        const suhuSeries = chartData.map(d => [new Date(d.createdAt).getTime(), d.suhu_air]);
         
         setChartSeriesData([
           { name: 'TDS (PPM)', data: tdsSeries },
@@ -284,19 +311,25 @@ const DosingDashboard = ({ deviceId }) => {
     fetchData();
   }, [deviceId]);
 
-  // Fetch History & Sync Switch Status
+  // 2. Fetch History & **HYBRID INITIAL STATE**
+  // Logika: Ambil data terakhir dari DB untuk mengisi tampilan awal agar tidak "0"
   useEffect(() => {
-    if(! deviceId) return;
+    if(!deviceId) return;
     const fetchHistory = async () => {
       setIsLoadingHistory(true);
       try {
-        const res = await api.get(`/alat/${deviceId}/dosing-data?  page=${currentPage}&limit=10`, { withCredentials: true });
-        const fetchedData = res.data. data;
+        const res = await api.get(`/alat/${deviceId}/dosing-data?page=${currentPage}&limit=10`, { withCredentials: true });
+        const fetchedData = res.data.data;
         setHistoricalData(fetchedData);
         setTotalPages(res.data.totalPages);
 
         if (currentPage === 1 && fetchedData.length > 0) {
           const latestData = fetchedData[0];
+          
+          // --- SET DATA DARI DATABASE (HYBRID STEP 1) ---
+          setTds(parseFloat(latestData.tds_air).toFixed(0));
+          setSuhu(parseFloat(latestData.suhu_air).toFixed(1));
+          // isOnline TETAP FALSE (Merah) sampai Socket terhubung dan kirim data baru
           
           if (latestData.pompa_a_status === "ON") {
             setStatusPompaA({ value: 'Aktif', statusInfo: { text: 'Dosing', color: 'green' } });
@@ -319,19 +352,46 @@ const DosingDashboard = ({ deviceId }) => {
     fetchHistory();
   }, [deviceId, currentPage, refetchTrigger]);
 
-  // Socket IO Listener
+// 3. SOCKET CONNECTION DENGAN WATCHDOG
   useEffect(() => {
-    const socketInstance = io("http://localhost:5000"); 
-    
+    const socketUrl = `http://${window.location.hostname}:5000`; 
+    const socketInstance = io(socketUrl); 
+    let watchdogTimer;
+
+    const heartBeat = () => {
+        setIsOnline(true); 
+        clearTimeout(watchdogTimer);
+        watchdogTimer = setTimeout(() => {
+            setIsOnline(false); 
+            console.log("Alat offline > 20s");
+        }, 20000); 
+    };
+
     socketInstance.on("connect", () => {
-      console.  log("Terhubung ke WebSocket");
+       // Standby
     });
 
-    socketInstance.on("update_tds", (payload) => setTds(parseFloat(payload.value).  toFixed(0)));
-    socketInstance.on("update_suhu", (payload) => setSuhu(parseFloat(payload.value). toFixed(1)));
+    socketInstance.on("disconnect", () => {
+      setIsOnline(false);
+      clearTimeout(watchdogTimer);
+    });
+
+    // --- LISTENER SENSOR (Validasi Kehidupan Alat) ---
+    socketInstance.on("update_tds", (payload) => {
+        const val = payload.value !== undefined ? payload.value : payload;
+        setTds(parseFloat(val).toFixed(0));
+        heartBeat(); // ✅ TETAP ADA: Data sensor = Alat Hidup
+    });
+
+    socketInstance.on("update_suhu", (payload) => {
+        const val = payload.value !== undefined ? payload.value : payload;
+        setSuhu(parseFloat(val).toFixed(1));
+        heartBeat(); // ✅ TETAP ADA: Data sensor = Alat Hidup
+    });
     
+    // --- LISTENER POMPA (Hanya Update UI Switch, JANGAN Update Status Online) ---
     socketInstance.on("update_pompa_a", (status) => {
-      console.log("Update Status Pompa A:", status);
+      // ❌ HAPUS heartBeat() DARI SINI
       const isOny = (status === 'ON' || status === "1"); 
       setStatusPompaA(isOny
         ? { value: 'Aktif', statusInfo: { text: 'Dosing', color: 'green' } } 
@@ -339,7 +399,7 @@ const DosingDashboard = ({ deviceId }) => {
     });
     
     socketInstance.on("update_pompa_b", (status) => {
-      console.  log("Update Status Pompa B:", status);
+      // ❌ HAPUS heartBeat() DARI SINI
       const isOny = (status === 'ON' || status === "1");
       setStatusPompaB(isOny 
         ? { value: 'Aktif', statusInfo: { text: 'Dosing', color: 'green' } } 
@@ -348,44 +408,61 @@ const DosingDashboard = ({ deviceId }) => {
 
     socketInstance.on("new_dosing_data", () => setRefetchTrigger(prev => prev + 1));
     
-    return () => socketInstance.disconnect();
+    return () => {
+        socketInstance.disconnect();
+        clearTimeout(watchdogTimer);
+    };
   }, [deviceId]);
 
-  // Handlers
+// 2. FUNGSI handlePumpControl:
   const handlePumpControl = async (target, state) => {
+    // A. Guard Clause: Jika sedang memproses, tolak perintah baru
+    if (isProcessingPump) return;
+
+    // Set Loading agar tombol terkunci
+    setIsProcessingPump(true);
+
     const previousStateA = statusPompaA;
     const previousStateB = statusPompaB;
 
     const newStateObj = state === 'ON' 
-      ?  { value: 'Aktif', statusInfo: { text: 'Dosing', color: 'green' } }
+      ? { value: 'Aktif', statusInfo: { text: 'Dosing', color: 'green' } }
       : { value: 'Non-Aktif', statusInfo: { text: 'Standby', color: 'gray' } };
 
+    // Update UI Optimistik
     if (target === 'pumpA') setStatusPompaA(newStateObj);
     else if (target === 'pumpB') setStatusPompaB(newStateObj);
 
-    const valueToSend = state === 'ON' ?   "1" : "0";
+    const valueToSend = state === 'ON' ? "1" : "0";
+    
     try {
       await api.post(`/alat/${deviceId}/dosing-manual`, { 
         target: target, 
         value: valueToSend 
       }, { withCredentials: true });
+      
+      // Jika sukses, biarkan UI seperti itu
     } catch (err) {
       console.error("Gagal kontrol pompa:", err);
+      // Rollback UI jika gagal
       if (target === 'pumpA') setStatusPompaA(previousStateA);
       else if (target === 'pumpB') setStatusPompaB(previousStateB);
-      alert(`Gagal mengubah status pompa.  `);
+      alert(`Gagal mengubah status pompa.`);
+    } finally {
+      // B. Buka Kunci: Izinkan tombol diklik lagi setelah proses selesai (sukses/gagal)
+      setIsProcessingPump(false);
     }
   };
 
   const handleDeleteAll = async () => { 
-    if(confirm("Hapus semua?  ")) { 
+    if(confirm("Hapus semua?")) { 
       await api.delete(`/alat/${deviceId}/dosing-data`, { withCredentials: true }); 
       setRefetchTrigger(p=>p+1); 
     }
   };
 
   const handleDeleteFiltered = async (days) => { 
-    if(confirm(`Hapus > ${days} hari? `)) { 
+    if(confirm(`Hapus > ${days} hari?`)) { 
       await api.delete(`/alat/${deviceId}/dosing-data/filtered`, { data: { days }, withCredentials: true }); 
       setRefetchTrigger(p=>p+1); 
     }
@@ -395,16 +472,39 @@ const DosingDashboard = ({ deviceId }) => {
     <div className="space-y-6 pb-10">
       {/* 1. Header Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="TDS" value={tds} unit="PPM" icon={<FaCrosshairs />} statusInfo={{ text: 'Real time', color: 'blue' }} />
-        <StatCard title="Suhu" value={suhu} unit="°C" icon={<FaThermometerHalf />} statusInfo={{ text: 'Real time', color: 'blue' }} />
-        <StatCard title="Pompa A" value={statusPompaA.  value} icon={<FaTint className="text-green-600" />} statusInfo={statusPompaA.statusInfo} />
-        <StatCard title="Pompa B" value={statusPompaB. value} icon={<FaTint className="text-cyan-600" />} statusInfo={statusPompaB.statusInfo} />
+        
+        {/* CARD TDS - Hybrid Status */}
+        <StatCard 
+            title="TDS" 
+            value={tds} 
+            unit="PPM" 
+            icon={isOnline ? <FaCrosshairs /> : <FaExclamationCircle />} 
+            statusInfo={{ 
+                text: isOnline ? 'Real time' : 'Offline', 
+                color: isOnline ? 'green' : 'red' 
+            }} 
+        />
+        
+        {/* CARD SUHU - Hybrid Status */}
+        <StatCard 
+            title="Suhu" 
+            value={suhu} 
+            unit="°C" 
+            icon={isOnline ? <FaThermometerHalf /> : <FaExclamationCircle />} 
+            statusInfo={{ 
+                text: isOnline ? 'Real time' : 'Offline', 
+                color: isOnline ? 'green' : 'red' 
+            }} 
+        />
+        
+        <StatCard title="Pompa A" value={statusPompaA.value} icon={<FaTint className="text-green-600" />} statusInfo={statusPompaA.statusInfo} />
+        <StatCard title="Pompa B" value={statusPompaB.value} icon={<FaTint className="text-cyan-600" />} statusInfo={statusPompaB.statusInfo} />
       </div>
 
       {/* 2. Middle Section */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         
-        {/* Kiri: Kontrol Manual & Settings (2 kolom) */}
+        {/* Kiri: Kontrol Manual & Settings */}
         <div className="lg:col-span-1 flex flex-col gap-6">
           <DosingManualControlCard 
             statusPompaA={statusPompaA} 
@@ -414,7 +514,7 @@ const DosingDashboard = ({ deviceId }) => {
           <SettingsDisplayCard settings={settings} />
         </div>
 
-        {/* Kanan: Chart (3 kolom) */}
+        {/* Kanan: Chart */}
         <div className="lg:col-span-3">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 h-full min-h-[450px] flex flex-col">
             <h3 className="text-lg font-bold text-gray-800 mb-4">Grafik Real-time</h3>

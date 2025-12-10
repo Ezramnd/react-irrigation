@@ -62,7 +62,7 @@ DosingData.belongsTo(Devices, { foreignKey: 'deviceId' });
 const dosingStates = {}; 
 // --- TAMBAHAN BARU (INTERVAL 1 MENIT- 9 DES) ---
 const dosingLastSaveTime = {}; // Menyimpan waktu terakhir save per device ID
-const DOSING_SAVE_INTERVAL_MS = 60 * 1000; // 1 Menit (60.000 ms)
+const DOSING_SAVE_INTERVAL_MS = 30 * 1000; // 30 Detik (30.000 ms)
 
 // 2. VARIABLE CLIMATE (HAFIZH)
 let lastRelay1State = "OFF";
@@ -198,7 +198,6 @@ mqttClient.on('message', async (topic, message) => {
                 dosingStates[macAddress].tempTDS = tdsVal;
 
                 // 2. SELALU Kirim ke Socket.IO (Agar Website Real-time)
-                // console.log(`💧 [REALTIME] TDS: ${tdsVal}`); 
                 io.emit('update_tds', { mac: macAddress, value: tdsVal });
 
                 // 3. LOGIKA INTERVAL PENYIMPANAN DATABASE
@@ -231,14 +230,14 @@ mqttClient.on('message', async (topic, message) => {
                         // Update Waktu Simpan Terakhir menjadi SEKARANG
                         dosingLastSaveTime[device.id] = currentTime;
 
-                        console.log(`💾 [DATABASE] Data Dosing Tersimpan (Interval 1 Menit). ID: ${device.id}`);
+                        console.log(`[DATABASE] Data Dosing Tersimpan (Interval 1 Menit). ID: ${device.id}`);
                         io.emit('new_dosing_data'); // Trigger tabel history di frontend refresh
                     } else {
                         // Jika belum 1 menit, abaikan penyimpanan DB (hanya update RAM/Socket)
-                        // console.log(`⏩ [SKIP DB] Belum 1 menit.`);
+                        // console.log(`[SKIP DB] Belum 1 menit.`);
                     }
                 } else {
-                    console.error(`⛔ [ERROR] Device MAC ${macAddress} tidak ditemukan di Database!`);
+                    console.error(`[ERROR] Device MAC ${macAddress} tidak ditemukan di Database!`);
                 }
             }
 
@@ -257,7 +256,7 @@ mqttClient.on('message', async (topic, message) => {
             }
 
         } catch (err) {
-            console.error("❌ [DOSING ERROR]:", err.message);
+            console.error("[DOSING ERROR]:", err.message);
         }
         return; 
     }

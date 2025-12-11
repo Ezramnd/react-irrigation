@@ -128,7 +128,8 @@ const formatTimestamp = (isoDate) => {
     const date = new Date(isoDate);
     return date.toLocaleString('id-ID', {
         dateStyle: 'medium',
-        timeStyle: 'medium'
+        timeStyle: 'medium',
+        timeZone: 'Asia/Jakarta'
     });
 };
 
@@ -159,28 +160,82 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
         solenoid4: false, solenoid5: false, solenoid6: false
     });
     const [pumpState, setPumpState] = useState(false);
+    
+    // --- 1a. FUNGSI UNTUK MENGAMBIL STATUS MANUAL TERAKHIR ---
+    // const fetchManualState = async () => {
+    //     if (!device?.id) return;
+
+    //     try {
+    //         console.log("[DEBUG] Mengambil status kontrol manual terakhir.");
+    //         // ASUMSI: Backend memiliki endpoint untuk status alat
+    //         const response = await api.get(`/devices/${device.id}/status`); 
+            
+    //         const { manualControl } = response.data; // Asumsi format data: { ..., manualControl: { solenoid1: true, pump: false, ... } }
+
+    //         if (manualControl) {
+    //             // Update state solenoid
+    //             const newSolenoidStates = {};
+    //             for (let i = 1; i <= device.solenoidCount; i++) {
+    //                 const key = `solenoid${i}`;
+    //                 // Ambil status dari backend, default ke false jika tidak ada
+    //                 newSolenoidStates[key] = manualControl[key] === 'ON'; 
+    //             }
+    //             setSolenoidStates(newSolenoidStates);
+
+    //             // Update state pompa
+    //             setPumpState(manualControl.pump === 'ON');
+    //         }
+    //         console.log("[DEBUG] Status manual diinisialisasi:", manualControl);
+    //     } catch (error) {
+    //         console.error("Gagal mengambil status manual terakhir:", error);
+    //     }
+    // };
+    // //
 
     // --- 1. INITIALIZATION EFFECT (Runs when 'device' props change) ---
     useEffect(() => {
-        if (device) {
-            // Isi state awal dari props device
-            setRealtimeDeviceInfo({
-                status: device.status || 'inactive',
-                ipAddress: device.ipAddress || 'N/A',
-                ssid: device.ssid || 'N/A', 
-                firmware: device.firmware || 'N/A'
-            });
+    if (device) {
+        // [Kode inisialisasi realtimeDeviceInfo tetap di sini]
+        setRealtimeDeviceInfo({
+            status: device.status || 'inactive',
+            ipAddress: device.ipAddress || 'N/A',
+            ssid: device.ssid || 'N/A', 
+            firmware: device.firmware || 'N/A'
+        });
 
-            // Set jumlah solenoid state awal
-            if (device.solenoidCount) {
-                const initialStates = {};
-                for (let i = 1; i <= device.solenoidCount; i++) {
-                    initialStates[`solenoid${i}`] = false;
-                }
-                setSolenoidStates(initialStates);
+        // 🔥 LOGIKA UTAMA INISIALISASI KONTROL MANUAL 🔥
+        const initialStates = {};
+        
+        // Cek apakah device.solenoidCount ada (Asumsi ini > 0)
+        const count = device.solenoidCount || 6; // Gunakan default 6 jika count tidak ada di props
+        
+        // 1. Iterasi berdasarkan count untuk menentukan JUMLAH tombol
+        for (let i = 1; i <= count; i++) {
+            const key = `solenoid${i}`;
+            let stateFromDB = false;
+            
+            // 2. Cek status persisten dari DB melalui manualControl (jika ada)
+            if (device.manualControl && device.manualControl[key]) {
+                stateFromDB = device.manualControl[key] === 'ON'; 
             }
+            
+            initialStates[key] = stateFromDB;
         }
-    }, [device]);
+        
+        // 3. Set State Pompa
+        // Gunakan device.pumpState jika manualControl tidak ada (opsional)
+        setPumpState(device.manualControl?.pump === 'ON' || device.pumpState === 'ON' || false);
+        
+        // 4. Set State Solenoid
+        setSolenoidStates(initialStates);
+
+        console.log("[DEBUG] Status manual diinisialisasi dari props:", initialStates);
+        
+        // Hapus Blok A lama di sini
+
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [device]);
 
     // --- 2. FETCH LOGS FUNCTION ---
     // Didefinisikan di sini agar bisa dipanggil oleh useEffect maupun Socket
@@ -229,7 +284,7 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
     useEffect(() => {
         if (!device?.id) return;
 
-        const socketUrl = "http://localhost:5000"; // GANTI SESUAI URL BACKEND ANDA
+        const socketUrl = 'http://localhost:5000'; // GANTI SESUAI URL BACKEND ANDA
         const socket = io(socketUrl);
 
         console.log("🔌 Menghubungkan Socket.IO...");
@@ -246,6 +301,30 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
                     firmware: data.firmware || prev.firmware
                 }));
                 toast.success(`Perangkat Online: ${data.ipAddress}`, { id: 'online-toast' });
+            }
+        });
+
+        // Listener BARU: Update Status Kontrol Manual
+        socket.on('manual_state_update', (data) => {
+            if (data.deviceId === device.id) {
+                console.log("⚡ Realtime Manual State Diterima:", data);
+                // Contoh format data: { deviceId: 1, solenoid1: 'ON', solenoid2: 'OFF', pump: 'ON' }
+                
+                const newSolenoidStates = { ...solenoidStates };
+                let pump = pumpState;
+
+                Object.keys(data).forEach(key => {
+                    if (key.startsWith('solenoid')) {
+                        newSolenoidStates[key] = data[key] === 'ON';
+                    } else if (key === 'pump') {
+                        pump = data[key] === 'ON';
+                    }
+                });
+                
+                setSolenoidStates(newSolenoidStates);
+                setPumpState(pump);
+
+                toast('Kontrol Manual diperbarui secara realtime.', { id: 'manual-update-toast' });
             }
         });
         
@@ -270,10 +349,11 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
         try {
             const commandPayload = {
                 ...payload,
-                macAddress: device.macAddress 
+                macAddress: device.macAddress,
+                deviceId: device.id,
             };
 
-            await api.post(`/devices/${device.id}/manual`, commandPayload, { withCredentials: true });
+            await api.post(`/alat/${device.id}/manual`, commandPayload, { withCredentials: true });
             console.log(`Perintah manual berhasil dikirim:`, commandPayload);
             toast.success("Perintah terkirim ke alat");
         } catch (error) {

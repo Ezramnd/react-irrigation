@@ -674,6 +674,77 @@ const ClimateDashboard = ({ deviceId, initialSchedules, initialSettings }) => {
 
         fetchSettings();
     }, [deviceId]);
+
+    // ----------------------------8DES----------------------------
+    useEffect(() => {
+        const fetchSchedules = async () => {
+            if (!deviceId) return;
+
+            try {
+                // 1. Panggil API (Endpoint sudah benar 'climate-jadwal')
+                const response = await api.get(
+                    `/alat/${deviceId}/climate-jadwal`, 
+                    { withCredentials: true }
+                );
+
+                const rawData = response.data;
+                console.log("🔍 Data Jadwal Raw dari DB:", rawData); // Cek console browser untuk melihat format asli
+
+                // 2. Format Ulang Data (Dengan Smart Detection)
+                const formattedSchedules = rawData.map(schedule => {
+                    let activeFans = [];
+
+                    // --- PRIORITAS A: Cek kolom 'fans' (Format Array atau String JSON) ---
+                    // Ini yang kemungkinan besar dikirim oleh Backend Anda saat ini
+                    if (schedule.fans) {
+                        if (Array.isArray(schedule.fans)) {
+                            // Jika database mengirim Array asli: ['1', '2']
+                            activeFans = schedule.fans;
+                        } else if (typeof schedule.fans === 'string') {
+                            // Jika database mengirim String: "['1', '2']"
+                            try {
+                                // Trik: Ubah kutip satu (') jadi kutip dua (") agar valid JSON
+                                const cleanString = schedule.fans.replace(/'/g, '"');
+                                activeFans = JSON.parse(cleanString);
+                            } catch (e) {
+                                console.warn("Gagal parse format fans:", schedule.fans);
+                            }
+                        }
+                    }
+
+                    // --- PRIORITAS B: Fallback ke kolom Boolean lama (fan1, fan2) ---
+                    // Hanya dijalankan jika Prioritas A kosong/gagal (untuk backward compatibility)
+                    if (activeFans.length === 0) {
+                        if (schedule.fan1 === true || schedule.fan1 === 1 || schedule.fan1 === "1") activeFans.push('1');
+                        if (schedule.fan2 === true || schedule.fan2 === 1 || schedule.fan2 === "1") activeFans.push('2');
+                    }
+
+                    // Pastikan format data string agar aman ditampilkan di tabel
+                    activeFans = activeFans.map(String);
+
+                    // 3. Mapping Data Lain
+                    return {
+                        id: schedule.id,
+                        // Antisipasi perbedaan nama kolom (tanggalMulai vs startDate)
+                        tanggalMulai: new Date(schedule.tanggalMulai || schedule.startDate).toLocaleDateString('id-ID'),
+                        tanggalSelesai: new Date(schedule.tanggalSelesai || schedule.endDate).toLocaleDateString('id-ID'),
+                        // Pastikan waktu selalu Array
+                        waktu: Array.isArray(schedule.waktu) ? schedule.waktu : [schedule.waktu], 
+                        durasi: schedule.durasi,
+                        fans: activeFans // Hasil deteksi di atas
+                    };
+                });
+
+                setClimateSchedules(formattedSchedules);
+
+            } catch (error) {
+                console.error("Gagal mengambil jadwal climate:", error);
+            }
+        };
+
+        fetchSchedules();
+    }, [deviceId]);
+    // ----------------------------8DES--------------------------
     
     const handleDeleteAllHistory = async () => {    
         if (!window.confirm("Apakah Anda yakin ingin menghapus SEMUA data historis climate untuk alat ini? Tindakan ini tidak dapat dibatalkan.")) {

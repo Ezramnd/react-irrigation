@@ -3,6 +3,7 @@ import axios from 'axios';
 import { motion } from 'framer-motion';
 import MainLayout from '../components/MainLayout';
 import ClimateDashboard from '../components/ClimateDashboard';
+import DosingDashboard from '../components/DosingDashboard';
 import SmartIrrigationDashboard from '../components/SmartIrrigationDashboard';
 import { FiHardDrive, FiLoader, FiAlertTriangle } from 'react-icons/fi';
 
@@ -16,6 +17,12 @@ const DashboardPage = () => {
     // State untuk status loading dan error
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    const [climateSchedules, setClimateSchedules] = useState(null);
+    const [climateSettings, setClimateSettings] = useState(null);
+
+    const [dosingSettings, setDosingSettings] = useState(null);
+
 
     // useEffect untuk mengambil daftar alat saat komponen dimuat pertama kali
     useEffect(() => {
@@ -77,6 +84,9 @@ const DashboardPage = () => {
     // Jangan jalankan jika tidak ada ID alat yang dipilih
     if (!selectedDeviceId) {
         setSelectedDevice(null);
+        setClimateSchedules(null);
+        setClimateSettings(null);
+        setDosingSettings(null);
         return;
     }
 
@@ -101,8 +111,51 @@ const DashboardPage = () => {
 
             // 3. Kirim request untuk detail alat DENGAN menyertakan config
             const response = await axios.get(`/api/alat/${selectedDeviceId}`, config);
+            const deviceData = response.data;
             setSelectedDevice(response.data);
 
+            if (deviceData.jenis === 'Climate') {
+                    // Gunakan 'config' yang sama dengan yang di atas
+                    
+                    // Ambil Jadwal Climate
+                    const schedulesResponse = await axios.get(
+                        `/api/alat/${selectedDeviceId}/climate-jadwal`, 
+                        config // <-- Pakai config yang sudah ada
+                    );
+                    setClimateSchedules(schedulesResponse.data);
+
+                    // Ambil Settings Climate
+                    const settingsResponse = await axios.get(
+                        `/api/alat/${selectedDeviceId}/climate-settings`,
+                        config // <-- Pakai config yang sudah ada
+                    );
+                    
+                    if (settingsResponse.data) {
+                        // Terjemahkan nama properti agar konsisten
+                        const formattedSettings = {
+                            kipas1_min: settingsResponse.data.minSuhuKipas1,
+                            kipas1_max: settingsResponse.data.maxSuhuKipas1,
+                            kipas2_min: settingsResponse.data.minSuhuKipas2,
+                            kipas2_max: settingsResponse.data.maxSuhuKipas2
+                        };
+                        setClimateSettings(formattedSettings);
+                    } else {
+                        setClimateSettings(null); // Atau set ke default
+                    }
+                }
+                else if (deviceData.jenis === 'Dosing') { 
+                    // Ambil Settings Dosing
+                    const settingsResponse = await axios.get(
+                        `/api/alat/${selectedDeviceId}/dosing-settings`,
+                        config 
+                    );
+                    
+                    if (settingsResponse.data) {
+                        setDosingSettings(settingsResponse.data);
+                    } else {
+                        setDosingSettings(null); // Atau set ke default
+                    }
+                }
         } catch (err) {
             if (err.response && err.response.status === 401) {
                 setError("Sesi Anda berakhir. Gagal memuat detail alat.");
@@ -153,7 +206,11 @@ const DashboardPage = () => {
 
         switch (selectedDevice.jenis) {
             case 'Climate':
-                return <ClimateDashboard deviceId={selectedDeviceId} />;
+                 return <ClimateDashboard 
+                    deviceId={selectedDeviceId}
+                    initialSchedules={climateSchedules} // <-- TAMBAH: Berikan jadwal
+                    initialSettings={climateSettings}  // <-- TAMBAH: Berikan settings
+                />;
             case 'Smart Irrigation':
                 return <SmartIrrigationDashboard device={selectedDevice} />;
             default:
@@ -163,6 +220,11 @@ const DashboardPage = () => {
                        <p className="font-semibold">Jenis alat '{selectedDevice.jenis}' tidak dikenali.</p>
                    </div>
                 );
+            case 'Dosing':
+                return <DosingDashboard 
+                    deviceId={selectedDeviceId}
+                    initialSettings={dosingSettings}
+                />;
         }
     };
     

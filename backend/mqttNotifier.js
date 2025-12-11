@@ -23,6 +23,31 @@ export const subscribeToDeviceStatus = (macAddress) => {
     }
 };
 
+export const publishCommand = (macAddress, payload) => {
+    
+    if (mqttClient && mqttClient.connected && mqttClient.options) {
+        const username = mqttClient.options.username; 
+
+        const macTopic = macAddress.replace(/:/g, '').toUpperCase();
+        
+        // Asumsi Topik Perintah Manual: [username]/cmnd/[macAddress]/ManualControl
+        // Sesuaikan jika topik command Anda berbeda (misal: [username]/esp32/alat/[macAddress]/manual)
+        const fullTopic = `${username}/esp32/alat/IRRIGATION-${macTopic}/manual/set`;
+
+        mqttClient.publish(fullTopic, JSON.stringify(payload), { qos: 1 }, (err) => {
+            if (!err) {
+                console.log(`✅ MQTT Command terkirim ke topik ${fullTopic}:`, payload);
+            } else {
+                console.error(`❌ Gagal mengirim perintah ke ${fullTopic}:`, err);
+            }
+        });
+        return true; // Perintah dikirim (meski mungkin gagal di koneksi)
+    } else {
+        console.error("❌ MQTT tidak terhubung, perintah kontrol manual gagal dikirim.");
+        return false; // Perintah gagal dikirim
+    }
+};
+
 // Fungsi ini akan kita panggil dari controller
 export const publishScheduleUpdate = (topic, payload) => {
     // Pastikan client ada, terhubung, dan punya options

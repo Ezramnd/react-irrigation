@@ -65,6 +65,46 @@ const Devices = db.define('devices', {
         allowNull: false,
         defaultValue: 'auto'
     },
+
+    // Tambahkan field untuk Pompa
+    pumpState: {
+        type: DataTypes.ENUM('ON', 'OFF'),
+        allowNull: false,
+        defaultValue: 'OFF'
+    },
+    
+    // Tambahkan field untuk setiap Solenoid
+    // Sesuaikan jumlah solenoid (misal hingga solenoid6) dengan hardware Anda
+    solenoid1State: {
+        type: DataTypes.ENUM('ON', 'OFF'),
+        allowNull: false,
+        defaultValue: 'OFF'
+    },
+    solenoid2State: {
+        type: DataTypes.ENUM('ON', 'OFF'),
+        allowNull: false,
+        defaultValue: 'OFF'
+    },
+    solenoid3State: {
+        type: DataTypes.ENUM('ON', 'OFF'),
+        allowNull: false,
+        defaultValue: 'OFF'
+    },
+    solenoid4State: {
+        type: DataTypes.ENUM('ON', 'OFF'),
+        allowNull: false,
+        defaultValue: 'OFF'
+    },
+    solenoid5State: {
+        type: DataTypes.ENUM('ON', 'OFF'),
+        allowNull: false,
+        defaultValue: 'OFF'
+    },
+    solenoid6State: {
+        type: DataTypes.ENUM('ON', 'OFF'),
+        allowNull: false,
+        defaultValue: 'OFF'
+    },
 }, {
     freezeTableName: true
 });

@@ -2,7 +2,7 @@ import express from "express";
 import { getUsers, Register, Login, Logout, getMe, updateUser, deleteUser } from "../controllers/Users.js";
 import { verifyToken, adminOnly } from "../middleware/AuthUser.js";
 import { refreshToken } from "../controllers/RefreshToken.js";
-import { getDevices, createDevice, updateDevice, deleteDevice, getDeviceById } from "../controllers/DeviceController.js";
+import { getDevices, createDevice, updateDevice, deleteDevice, getDeviceById, sendManualCommand } from "../controllers/DeviceController.js";
 import Devices from "../models/DeviceModel.js";
 import { getDeviceSchedules, createScheduleForDevice, deleteSchedule, updateSchedule, getSchedules, manualControl} from "../controllers/ScheduleController.js";
 import { 
@@ -22,11 +22,25 @@ import {
     getControlMode,
     setControlMode
 } from "../controllers/ClimateScheduleController.js";
+import {
+    getDosingSettings,
+    updateDosingSettings,
+    manualDosingControl,
+    getDosingData,
+    getLatestDosingData,
+    getDosingChartData,
+    getAllDosingData,
+    deleteDosingData,          // <--- TAMBAHAN BARU
+    deleteFilteredDosingData // Pastikan ini ada
+} from "../controllers/DosingController.js";
 import ClimateSettings from "../models/ClimateSettingsModel.js";
 import { getScheduleLogs } from "../controllers/LogController.js";
+import DosingSettings from "../models/DosingSettingsModel.js";
+import DosingData from "../models/DosingDataModel.js";
 import { forgotPassword, resetPassword } from "../controllers/Users.js";
 import db from "../config/Database.js";
 import Users from "../models/UserModel.js";
+
 
 const router = express.Router();
 
@@ -62,6 +76,7 @@ router.get('/alat/:deviceId/jadwal', verifyToken, getDeviceSchedules);
 // Membuat jadwal baru untuk satu alat spesifik
 router.post('/alat/:deviceId/jadwal', verifyToken, createScheduleForDevice);
 // ROUTE BARU UNTUK KONTROL MANUAL
+router.post('/alat/:id/manual', verifyToken, sendManualCommand);
 router.post('/devices/:deviceId/manual', verifyToken, manualControl);
 // Menghapus jadwal (jadwal akan terhapus dari semua alat yang menggunakannya)
 router.delete('/jadwal/:scheduleId', verifyToken, deleteSchedule);
@@ -107,12 +122,37 @@ router.post('/alat/:deviceId/climate-manual', verifyToken, manualClimateControl)
 router.get('/alat/:deviceId/control-mode', verifyToken, getControlMode);
 router.patch('/alat/:deviceId/control-mode', verifyToken, setControlMode);
 
+// --- [BARU & PERBAIKAN PENTING] Rute Dosing ---
+router.get('/alat/:id/dosing-settings', verifyToken, getDosingSettings);
+router.patch('/alat/:id/dosing-settings', verifyToken, updateDosingSettings);
+router.post('/alat/:id/dosing-manual', verifyToken, manualDosingControl);
+router.get('/alat/:id/dosing-data', verifyToken, getDosingData);
+router.get('/alat/:id/dosing-chart', verifyToken, getDosingChartData);
+router.get('/alat/:id/dosing-data/latest', verifyToken, getLatestDosingData);
+router.get('/alat/:id/dosing-data/all', verifyToken, getAllDosingData);
+router.delete('/alat/:id/dosing-data', verifyToken, deleteDosingData);
+router.delete('/alat/:id/dosing-data/filtered', verifyToken, deleteFilteredDosingData);
+
 Users.hasMany(Devices);
 Devices.belongsTo(Users, { foreignKey: 'userId' });
 
 // Relasi Device <-> ClimateSettings (One-to-One)
 Devices.hasOne(ClimateSettings, { foreignKey: 'deviceId' });
 ClimateSettings.belongsTo(Devices, { 
+    foreignKey: 'deviceId',
+    onDelete: 'CASCADE' 
+});
+
+// <-- [BARU] Relasi Dosing -->
+// Relasi Device <-> DosingSettings (One-to-One)
+Devices.hasOne(DosingSettings, { foreignKey: 'deviceId' });
+DosingSettings.belongsTo(Devices, { 
+    foreignKey: 'deviceId',
+    onDelete: 'CASCADE' 
+});
+// Relasi Device <-> DosingData (One-to-Many)
+Devices.hasMany(DosingData, { foreignKey: 'deviceId' });
+DosingData.belongsTo(Devices, { 
     foreignKey: 'deviceId',
     onDelete: 'CASCADE' 
 });

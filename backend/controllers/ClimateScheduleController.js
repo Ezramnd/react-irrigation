@@ -21,21 +21,21 @@ const createClimateTopicFromMac = (macAddress) => {
     if (!macAddress) return null;
     let topicMac = macAddress.replace(/:/g, '-');
     // Topik baru yang spesifik untuk jadwal climate
-    return `${process.env.MQTT_user}/climate/esp32/alat/${topicMac}/climate-jadwal/set`; 
+    return `climate/esp32/alat/${topicMac}/climate-jadwal/set`; 
 }
 
 const createClimateSettingsTopicFromMac = (macAddress) => {
     if (!macAddress) return null;
     let topicMac = macAddress.replace(/:/g, '-');
     // Topik baru yang spesifik untuk treshold/settings
-    return `${process.env.MQTT_user}/climate/esp32/alat/${topicMac}/climate-settings/set`; 
+    return `climate/esp32/alat/${topicMac}/climate-settings/set`; 
 }
 
 const createClimateModeTopicFromMac = (macAddress) => {
     if (!macAddress) return null;
     let topicMac = macAddress.replace(/:/g, '-');
     // Topik baru yang spesifik untuk mode
-    return `${process.env.MQTT_user}/climate/esp32/alat/${topicMac}/climate-mode/set`; 
+    return `climate/esp32/alat/${topicMac}/climate-mode/set`; 
 }
 
 export const manualClimateControl = async (req, res) => {

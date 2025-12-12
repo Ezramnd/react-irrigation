@@ -13,7 +13,7 @@ export default defineConfig({
   proxy: {
       // Semua permintaan yang dimulai dengan /api akan diteruskan ke backend
       '/api': {
-        target: `http://192.168.1.9:5000`, // Ganti dengan alamat backend Anda
+        target: `http://localhost:5000`, // Ganti dengan alamat backend Anda
         changeOrigin: true, // Diperlukan agar proxy berjalan dengan baik
         rewrite: (path) => path.replace(/^\/api/, ''), // Hapus /api sebelum dikirim ke backend
       }

@@ -126,13 +126,13 @@ try {
 app.use(cors({
     credentials: true,
     origin: [
-        FRONTEND_URL, "http://localhost:5173", "http://192.168.1.9:5173", "http://192.168.1.9:5000", "http://192.168.1.9:8081", "http://localhost:8081", "http://localhost:5000"
+        FRONTEND_URL, "http://localhost:5173", "http://localhost:5173", "http://localhost:5000", "http://localhost:8081", "http://localhost:8081", "http://localhost:5000"
         // Tambahkan origin ini
     ]
 })); 
 
 // ✅ AKTIFKAN DAN KONFIGURASI CORS DI SINI
-// app.use(cors({ credentials: true, origin: [FRONTEND_URL, 'http://192.168.1.9:8081'] }));
+// app.use(cors({ credentials: true, origin: [FRONTEND_URL, 'http://localhost:8081'] }));
 // // Ganti 192.168.1.10 dengan IP lokal komputer Anda. 
 // Port 8081 adalah default Expo.
 // Atau cara paling mudah untuk development:
@@ -231,36 +231,32 @@ mqttClient.on('message', async (topic, message) => {
     const topicStr = topic.toString();
     const messageStr = message.toString();
 
-    console.log(`Pesan diterima di topik: ${topicStr}`);
+    // console.log(`📨 Pesan di topik: ${topicStr}`); // Debugging (Opsional)
 
+    // -------------------------------------------------------------------------
+    // 1. HANDLER: SYNC REQUEST (Jadwal Irigasi Lama)
+    // -------------------------------------------------------------------------
     const match = topicStr.match(syncRequestTopicPattern);
-    
     if (match) {
-        // match[1] sekarang berisi "IRRIGATION-4CC3820BE7D8"
         const combinedId = match[1]; 
-        
-        // Pisahkan deviceType dan simpleMacAddress berdasarkan tanda hubung pertama
         const separatorIndex = combinedId.indexOf('-');
-        if (separatorIndex === -1) return; // Abaikan jika formatnya aneh
+        if (separatorIndex === -1) return;
 
         const deviceType = combinedId.substring(0, separatorIndex);
         const simpleMacAddress = combinedId.substring(separatorIndex + 1);
-
-        // Format MAC Address ke bentuk standar (dengan titik dua)
         const formattedMacAddress = simpleMacAddress.match(/.{1,2}/g).join(':');
 
-        console.log(`Identifikasi Alat: Tipe=${deviceType}, MAC=${formattedMacAddress}`);
-
-        // Panggil fungsi handler sinkronisasi jadwal
+        console.log(`Identifikasi Alat (Sync): Tipe=${deviceType}, MAC=${formattedMacAddress}`);
         handleSyncRequest(formattedMacAddress);
-
-        return; // Hentikan proses setelah ditangani
+        return; 
     }
+
+    // -------------------------------------------------------------------------
+    // 2. HANDLER: LOG JADWAL (Irigasi Lama)
+    // -------------------------------------------------------------------------
     const logMatch = topicStr.match(logTopicPattern);
     if (logMatch) {
-        console.log(`Menerima data log dari: ${topicStr}`);
         try {
-            // 1. Ekstrak MAC Address
             const combinedId = logMatch[1];
             const separatorIndex = combinedId.indexOf('-');
             if (separatorIndex === -1) return;
@@ -268,17 +264,10 @@ mqttClient.on('message', async (topic, message) => {
             const simpleMacAddress = combinedId.substring(separatorIndex + 1);
             const formattedMacAddress = simpleMacAddress.match(/.{1,2}/g).join(':');
 
-            // 2. Cari Perangkat (Device)
             const device = await Devices.findOne({ where: { macAddress: formattedMacAddress } });
-            if (!device) {
-                console.log(`Log diterima, tapi perangkat ${formattedMacAddress} tidak ditemukan.`);
-                return;
-            }
+            if (!device) return;
 
-            // 3. Parse Payload
-            const logData = JSON.parse(message.toString());
-
-            // 4. Buat Log di Database
+            const logData = JSON.parse(messageStr);
             await ScheduleLog.create({
                 nama: logData.nama,
                 tanggal: logData.tanggal,
@@ -287,283 +276,179 @@ mqttClient.on('message', async (topic, message) => {
                 solenoid: logData.solenoid,
                 internet: logData.internet,
                 status: logData.status,
-                // Ubah Unix timestamp (detik) dari ESP32 ke JavaScript Date object (milidetik)
                 timestamp: new Date(logData.timestamp * 1000), 
                 userId: device.userId,
                 deviceId: device.id
             });
-            console.log(`✅ Log jadwal untuk perangkat ${device.nama} berhasil disimpan.`);
-
+            console.log(`✅ Log jadwal tersimpan: ${device.nama}`);
         } catch (e) {
-            console.error("Gagal memproses pesan log:", e);
+            console.error("Gagal proses log:", e);
         }
         return;
     }
 
-    // Topik Info untuk Irigasi (misal: ezramnd/esp32/alat/IRRIGATION-XXXX/info)
-    if (topicStr.endsWith("/info") && topicStr.startsWith(`${mqttOptions.username}/esp32/alat/IRRIGATION-`)) {
+    // -------------------------------------------------------------------------
+    // 3. HANDLER: STATUS ONLINE/OFFLINE PERANGKAT (IRRIGATION)
+    // -------------------------------------------------------------------------
+    if (topicStr.endsWith("/status") && topicStr.includes("IRRIGATION-")) {
+        // ... (Kode status irrigation Anda tetap sama) ...
         try {
-            // 1. Ekstrak MAC Address
-            const combinedId = topicStr.split('/')[3]; 
-            const separatorIndex = combinedId.indexOf('-');
-            if (separatorIndex === -1) return;
-            const simpleMacAddress = combinedId.substring(separatorIndex + 1);
-            const formattedMacAddress = simpleMacAddress.match(/.{1,2}/g).join(':');
+            const parts = topicStr.split('/'); // Asumsi struktur topic standar
+            // Cari bagian yang berisi "IRRIGATION-"
+            const deviceIdPart = parts.find(p => p.startsWith("IRRIGATION-"));
+            if(!deviceIdPart) return;
 
-            // 2. Parse Payload JSON
-            const data = JSON.parse(messageStr);
+            const simpleMac = deviceIdPart.split('-')[1];
+            const formattedMac = simpleMac.match(/.{1,2}/g).join(':');
+            
+            const statusMsg = messageStr.toUpperCase();
+            const dbStatus = (statusMsg === 'ONLINE') ? 'active' : 'inactive';
 
-            // 3. Update Database
-            const [updatedRows] = await Devices.update(
-                { 
-                    ipAddress: data.ipAddress, 
-                    ssid: data.ssid,
-                    firmware: data.firmware,
-                },
-                { where: { macAddress: formattedMacAddress } }
-            );
-
-            if (updatedRows > 0) {
-                console.log(`✅ INFO JARINGAN berhasil diupdate untuk ${formattedMacAddress}.`);
-                
-                // 4. Kirim ke Frontend (Socket.IO)
-                // Ini akan memicu listener 'device_status_update' di frontend dashboard
-                io.emit('device_status_update', {
-                    macAddress: formattedMacAddress,
-                    ipAddress: data.ipAddress,
-                    ssid: data.ssid,
-                    firmware: data.firmware,
-                    status: 'active' // Asumsi jika kirim info, dia pasti online
-                });
-            }
-        } catch (error) {
-            console.error(`❌ Gagal memproses data INFO dari ${topicStr}:`, error.message);
-        }
+            await Devices.update({ status: dbStatus }, { where: { macAddress: formattedMac } });
+            io.emit('device_status_update', { macAddress: formattedMac, status: dbStatus });
+        } catch (e) { console.error("Error status irrigation:", e.message); }
         return;
     }
 
-    if (topicStr.endsWith("/status") && topicStr.startsWith(`${mqttOptions.username}/esp32/alat/IRRIGATION-`)) {
-        const combinedId = topicStr.split('/')[3]; //misal: IRRIGATION-4CC3820BE7D8
-
-       try {
-            // 1. Ekstrak MAC
-            const separatorIndex = combinedId.indexOf('-');
-            if (separatorIndex === -1) return;
-            const simpleMacAddress = combinedId.substring(separatorIndex + 1);
-            const formattedMacAddress = simpleMacAddress.match(/.{1,2}/g).join(':');
-
-            // 2. Ambil Status
-            const statusMsg = message.toString().toUpperCase(); // ONLINE/OFFLINE
-            const dbStatus = (statusMsg === 'ONLINE') ? 'active' : 'inactive';
-            
-            // 3. Update DB (Seperti yang ditunjukkan log lokal)
-            const [updatedRows] = await Devices.update(
-                { status: dbStatus },
-                { where: { macAddress: formattedMacAddress } }
-            );
-
-            if (updatedRows > 0) {
-                // 4. Kirim ke Frontend (Socket.IO)
-                io.emit('device_status_update', {
-                    macAddress: formattedMacAddress,
-                    status: dbStatus,
-                    // Anda mungkin perlu mengambil data IP/SSID dari DB untuk pembaruan yang lengkap di frontend
-                });
-                console.log(`⚡ Device ${formattedMacAddress} is now ${statusMsg}`);
-            }
-
-        } catch (error) {
-            console.error(`❌ Gagal memproses status IRRIGATION dari ${topicStr}:`, error.message);
-        }
-        return; // Hentikan proses setelah ditangani
-    }
-
-    //climate
-    const climateMatch = topicStr.match(climateSyncRequestTopicPattern);
-    if (climateMatch) {
-        const macAddress = climateMatch[1].replace(/-/g, ':');
-        handleClimateSyncRequest(macAddress);
+    // -------------------------------------------------------------------------
+    // 4. HANDLER: CLIMATE SYSTEM (ESP32 Climate)
+    // -------------------------------------------------------------------------
+    // Ciri Khas: Topik mengandung "/climate/"
+    if (topicStr.includes("/climate/esp32/alat/")) {
+        
+        // A. Sync Request Climate
+        const climateMatch = topicStr.match(climateSyncRequestTopicPattern);
+        if (climateMatch) {
+            const macAddress = climateMatch[1].replace(/-/g, ':');
+            handleClimateSyncRequest(macAddress);
             return;
-    }
+        }
 
-    if (topicStr.startsWith(`${mqttOptions.username}/climate/esp32/alat/`) && topicStr.endsWith("/status")) {
+        // B. Status Kipas (Update Realtime)
+        if (topicStr.endsWith("/status")) {
             try {
                 const data = JSON.parse(messageStr);
                 if (data.kipas1) {
-                    lastRelay1State = data.kipas1; // "ON" or "OFF"
+                    lastRelay1State = data.kipas1;
                     io.emit('update_relay_1', lastRelay1State);
-                    console.log(`[Status] Kipas 1 diupdate ke: ${lastRelay1State}`);
                 }
                 if (data.kipas2) {
-                    lastRelay2State = data.kipas2; // "ON" or "OFF"
+                    lastRelay2State = data.kipas2;
                     io.emit('update_relay_2', lastRelay2State);
-                    console.log(`[Status] Kipas 2 diupdate ke: ${lastRelay2State}`);
                 }
-            } catch (error) {
-                console.error(`Gagal memproses status from ${topicStr}:`, error.message);
-            }
-            return; // Selesai
+            } catch (e) { console.error("Error status climate:", e.message); }
+            return;
         }
 
-    if (topicStr.startsWith(`${mqttOptions.username}/climate/esp32/alat/`) && topicStr.endsWith("/data")) {
+        // C. Data Sensor Climate (Suhu/Kelembaban)
+        if (topicStr.endsWith("/data")) {
+            try {
+                const parts = topicStr.split('/');
+                // Asumsi struktur: username/climate/esp32/alat/[MAC]/data
+                const macPart = parts[4]; 
+                const macAddress = macPart.replace(/-/g, ':');
+
+                const device = await Devices.findOne({ where: { macAddress: macAddress } });
+                if (!device) {
+                    console.warn(`Climate Data: Device ${macAddress} tidak dikenal.`);
+                    return;
+                }
+
+                const data = JSON.parse(messageStr);
+
+                // Update Status Kipas Realtime (Priority dari Data Sensor)
+                let finalKipas1 = lastRelay1State;
+                let finalKipas2 = lastRelay2State;
+
+                if (data.kipas1) finalKipas1 = data.kipas1;
+                if (data.kipas2) finalKipas2 = data.kipas2;
+                
+                // Update Global Var & Socket
+                lastRelay1State = finalKipas1;
+                lastRelay2State = finalKipas2;
+                io.emit('update_relay_1', finalKipas1);
+                io.emit('update_relay_2', finalKipas2);
+                io.emit('update_suhu', data.suhu);
+                io.emit('update_kelembaban', data.kelembaban);
+
+                // --- LOGIKA SIMPAN DATABASE (30 Detik) ---
+                const currentTime = Date.now();
+                const lastSave = deviceLastSaveTime[device.id] || 0;
+
+                if (currentTime - lastSave >= SAVE_INTERVAL_MS) {
+                    await ClimateData.create({
+                        suhu: data.suhu,
+                        kelembaban: data.kelembaban,
+                        kipas1_status: finalKipas1,
+                        kipas2_status: finalKipas2,
+                        deviceId: device.id
+                    });
+                    
+                    deviceLastSaveTime[device.id] = currentTime;
+                    
+                    io.emit('new_historical_data');
+                    console.log(`💾 [CLIMATE DB] Data tersimpan ${device.nama} (Interval 30s).`);
+                }
+            } catch (e) { console.error("Error data climate:", e.message); }
+            return;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. HANDLER: DOSING SYSTEM
+    // -------------------------------------------------------------------------
+    // Ciri Khas: Topik mengandung "/dosing/"
+    if (topicStr.includes("/dosing/")) {
         try {
-            const macAddressWithHyphen = topicStr.split('/')[4]; 
-            const macAddress = macAddressWithHyphen.replace(/-/g, ':');
-            console.log(`[Debug] Mencari device dengan MAC (format colon): ${macAddress}`);
-
-            const device = await Devices.findOne({ where: { macAddress: macAddress } });
-            if (!device) {
-                console.warn(`Data sensor diterima dari MAC ${macAddress} yang tidak terdaftar.`);
-                return;
-            }
-
-            const messageStr = message.toString();
-
-            const data = JSON.parse(messageStr);
-            
-            // 1. Ambil status TERAKHIR dari Database (Bukan dari variabel global server)
-            // Ini penting agar server 'sadar' jika baru saja ada perubahan manual via Controller
-            const lastLog = await ClimateData.findOne({
-                where: { deviceId: device.id },
-                order: [['createdAt', 'DESC']], // Ambil yang paling baru
-            });
-
-            // 2. Tentukan status default berdasarkan database terakhir
-            let finalKipas1 = lastLog ? lastLog.kipas1_status : "OFF";
-            let finalKipas2 = lastLog ? lastLog.kipas2_status : "OFF";
-
-            // 3. Jika paket data sensor MENGANDUNG status kipas, update statusnya.
-            // (Jika sensor hanya kirim suhu, status kipas tetap ikut database terakhir/Manual)
-            if (data.kipas1) finalKipas1 = data.kipas1;
-            if (data.kipas2) finalKipas2 = data.kipas2;
-
-              // --------------8DES---------------------
-            lastRelay1State = finalKipas1;
-            lastRelay2State = finalKipas2;
-
-            // 4. Update Socket IO agar tampilan frontend real-time
-            io.emit('update_relay_1', finalKipas1);
-            io.emit('update_relay_2', finalKipas2);
-
-            // 5. Simpan Log Baru
-            const newClimateEntry = await ClimateData.create({
-                suhu: data.suhu,
-                kelembaban: data.kelembaban,
-                kipas1_status: finalKipas1, // Gunakan status yang sudah disinkronkan
-                kipas2_status: finalKipas2, 
-                deviceId: device.id 
-            });
-
-            console.log(`✅ Data sensor dari ${macAddress} (ID: ${device.id}) berhasil disimpan.`);
-
-            io.emit('update_suhu', data.suhu);
-            io.emit('update_kelembaban', data.kelembaban);
-            
-            const currentTime = Date.now();
-            const lastSave = deviceLastSaveTime[device.id] || 0;
-
-            if (currentTime - lastSave >= SAVE_INTERVAL_MS) {
-                const newClimateEntry = await ClimateData.create({
-                    suhu: data.suhu,
-                    kelembaban: data.kelembaban,
-                    kipas1_status: finalKipas1, 
-                    kipas2_status: finalKipas2, 
-                    deviceId: device.id 
-                });
-
-                deviceLastSaveTime[device.id] = currentTime;
-
-                io.emit('new_historical_data');
-                io.emit('new_climate_data', newClimateEntry);
-
-            console.log(`💾 [DATABASE] Data tersimpan untuk ${device.nama} (Interval > 30s).`);
-            } else {
-                console.log(`⏩ [SKIP DB] Data diterima tapi belum 30s (${device.nama}). Socket.IO tetap update.`);
-            }
-            
-        } catch (error) {
-            console.error(`Gagal memproses/menyimpan data sensor dari ${topicStr}:`, error.message);
-        }
-        return; 
-        }
- // --------------------------------------------------------
-    // 1. LOGIKA DOSING SYSTEM (AZIS) - FIXED SPLIT TOPIC
-    // --------------------------------------------------------
-    if (topicStr.startsWith(`${mqttOptions.username}/esp32/alat/`) && topicStr.includes("/dosing/")) {
-        
-        try {
-            // Ambil MAC Address
+            // Ambil MAC Address (Asumsi: username/esp32/alat/[MAC]/dosing/...)
             const parts = topicStr.split('/');
-            const macWithDash = parts[3]; 
-            const macAddress = macWithDash.replace(/-/g, ':').toLowerCase();
+            const macPart = parts[3]; 
+            const macAddress = macPart.replace(/-/g, ':').toLowerCase();
 
-            // Inisialisasi Memori untuk MAC ini (FIX ERROR UNDEFINED)
+            // Init State Memory jika belum ada
             if (!dosingStates[macAddress]) {
                 dosingStates[macAddress] = { pumpA: "OFF", pumpB: "OFF", tempSuhu: 0, tempTDS: 0 };
             }
 
-            // A. DATA SUHU (Simpan Sementara)
-            if (topicStr.endsWith("/dosing/data/suhu_air")) {
+            // A. Data Suhu Dosing
+            if (topicStr.endsWith("/suhu_air")) {
                 const suhuVal = parseFloat(messageStr);
                 dosingStates[macAddress].tempSuhu = suhuVal;
-                
-                // console.log(`🌡️ [DOSING] Suhu Masuk: ${suhuVal} (Pending TDS...)`);
                 io.emit('suhu_air', { mac: macAddress, value: suhuVal });
-            }
-
-            // B. DATA TDS (LOGIKA INTERVAL 1 MENIT)
-            else if (topicStr.endsWith("/dosing/data/tds_air")) {
+            } 
+            
+            // B. Data TDS Dosing (Trigger Simpan DB)
+            else if (topicStr.endsWith("/tds_air")) {
                 const tdsVal = parseFloat(messageStr);
-                
-                // 1. Update Memori Sementara
                 dosingStates[macAddress].tempTDS = tdsVal;
-
-                // 2. SELALU Kirim ke Socket.IO (Agar Website Real-time)
-                // console.log(`💧 [REALTIME] TDS: ${tdsVal}`); 
                 io.emit('update_tds', { mac: macAddress, value: tdsVal });
 
-                // 3. LOGIKA INTERVAL PENYIMPANAN DATABASE
+                // --- LOGIKA SIMPAN DATABASE (30 Detik / 1 Menit) ---
                 const device = await Devices.findOne({ where: { macAddress: macAddress } });
                 
                 if (device) {
                     const currentTime = Date.now();
-                    const lastSave = dosingLastSaveTime[device.id] || 0; // Waktu simpan terakhir
+                    const lastSave = dosingLastSaveTime[device.id] || 0;
 
-                    // Cek: Apakah sudah berlalu 1 Menit (60.000ms) sejak simpan terakhir?
+                    // Gunakan variabel interval khusus Dosing (DOSING_SAVE_INTERVAL_MS)
                     if (currentTime - lastSave >= DOSING_SAVE_INTERVAL_MS) {
                         
-                        // Siapkan Data
-                        const dataToSave = {
-                            tds: dosingStates[macAddress].tempTDS,
-                            suhu: dosingStates[macAddress].tempSuhu,
-                            pa: dosingStates[macAddress].pumpA,
-                            pb: dosingStates[macAddress].pumpB
-                        };
-
-                        // Simpan ke Database
                         await DosingData.create({
                             deviceId: device.id,
-                            tds_air: dataToSave.tds,
-                            suhu_air: dataToSave.suhu,
-                            pompa_a_status: dataToSave.pa,
-                            pompa_b_status: dataToSave.pb
+                            tds_air: dosingStates[macAddress].tempTDS,
+                            suhu_air: dosingStates[macAddress].tempSuhu,
+                            pompa_a_status: dosingStates[macAddress].pumpA,
+                            pompa_b_status: dosingStates[macAddress].pumpB
                         });
 
-                        // Update Waktu Simpan Terakhir menjadi SEKARANG
                         dosingLastSaveTime[device.id] = currentTime;
-
-                        console.log(`[DATABASE] Data Dosing Tersimpan (Interval 1 Menit). ID: ${device.id}`);
-                        io.emit('new_dosing_data'); // Trigger tabel history di frontend refresh
-                    } else {
-                        // Jika belum 1 menit, abaikan penyimpanan DB (hanya update RAM/Socket)
-                        // console.log(`[SKIP DB] Belum 1 menit.`);
+                        io.emit('new_dosing_data');
+                        console.log(`💾 [DOSING DB] Data tersimpan ID: ${device.id} (Interval 30s/1m).`);
                     }
-                } else {
-                    console.error(`[ERROR] Device MAC ${macAddress} tidak ditemukan di Database!`);
                 }
             }
 
-            // C. STATUS POMPA (Manual / Feedback)
+            // C. Status Pompa
             else if (topicStr.includes("/status/pumpA") || topicStr.includes("/set/manual_pump_a")) {
                 const cleanMsg = messageStr.replace(/"/g, ''); 
                 const status = (cleanMsg === "1" || cleanMsg === "ON") ? "ON" : "OFF";
@@ -571,16 +456,14 @@ mqttClient.on('message', async (topic, message) => {
                 io.emit('update_pompa_a', status);
             }
             else if (topicStr.includes("/status/pumpB") || topicStr.includes("/set/manual_pump_b")) {
-                const cleanMsg = messageStr.replace(/"/g, '');
+                const cleanMsg = messageStr.replace(/"/g, ''); 
                 const status = (cleanMsg === "1" || cleanMsg === "ON") ? "ON" : "OFF";
                 dosingStates[macAddress].pumpB = status;
                 io.emit('update_pompa_b', status);
             }
 
-        } catch (err) {
-            console.error("❌ [DOSING ERROR]:", err.message);
-        }
-        return; 
+        } catch (e) { console.error("Error dosing:", e.message); }
+        return;
     }
 });
 

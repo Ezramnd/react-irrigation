@@ -384,7 +384,7 @@ const DosingDashboard = ({ deviceId }) => {
         heartBeat(); // ✅ TETAP ADA: Data sensor = Alat Hidup
     });
 
-    socketInstance.on("update_suhu", (payload) => {
+    socketInstance.on("suhu_air", (payload) => {
         const val = payload.value !== undefined ? payload.value : payload;
         setSuhu(parseFloat(val).toFixed(1));
         heartBeat(); // ✅ TETAP ADA: Data sensor = Alat Hidup

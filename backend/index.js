@@ -126,13 +126,13 @@ try {
 app.use(cors({
     credentials: true,
     origin: [
-        FRONTEND_URL, "http://localhost:5173", "http://37.44.244.108:8081", "http://localhost:8081", "http://localhost:5000"
+        FRONTEND_URL, "http://localhost:5173", "http://192.168.1.9:5173", "http://192.168.1.9:5000", "http://192.168.1.9:8081", "http://localhost:8081", "http://localhost:5000"
         // Tambahkan origin ini
     ]
 })); 
 
 // ✅ AKTIFKAN DAN KONFIGURASI CORS DI SINI
-// app.use(cors({ credentials: true, origin: [FRONTEND_URL, 'http://37.44.244.108:8081'] }));
+// app.use(cors({ credentials: true, origin: [FRONTEND_URL, 'http://192.168.1.9:8081'] }));
 // // Ganti 192.168.1.10 dengan IP lokal komputer Anda. 
 // Port 8081 adalah default Expo.
 // Atau cara paling mudah untuk development:
@@ -508,7 +508,7 @@ mqttClient.on('message', async (topic, message) => {
                 dosingStates[macAddress].tempSuhu = suhuVal;
                 
                 // console.log(`🌡️ [DOSING] Suhu Masuk: ${suhuVal} (Pending TDS...)`);
-                io.emit('update_suhu', { mac: macAddress, value: suhuVal });
+                io.emit('suhu_air', { mac: macAddress, value: suhuVal });
             }
 
             // B. DATA TDS (LOGIKA INTERVAL 1 MENIT)

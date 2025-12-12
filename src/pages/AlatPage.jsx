@@ -8,7 +8,7 @@ import api from '../api';
 import MainLayout from '../components/MainLayout';
 import QrScanner from '../components/QrScanner';
 
-const socket = io(`http://37.44.244.108:5173`);
+const socket = io(`http://192.168.1.9:5000`);
 
 // --- Komponen Kartu Alat ---
 const AlatCard = ({ alat, onClick }) => { 
@@ -907,7 +907,7 @@ const ModalKontrolDosing = ({ alat, onClose, onEdit }) => {
         });
 
         
-       socket.on("update_suhu", (payload) => {
+       socket.on("suhu_air", (payload) => {
 
             // Error terjadi lagi jika baris ini lupa dicopy ke listener suhu:
 

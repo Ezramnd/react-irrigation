@@ -139,8 +139,7 @@ export const getDeviceById = async (req, res) => {
         const findOptions = {
             where: { id: req.params.id },
             attributes: [
-                'id', 'uuid', 'nama', 'jenis', 'lokasi', 'status', 'macAddress', 'deviceType', 'userId', 
-                'connectionType', 'controlMode', 
+                'id', 'uuid', 'nama', 'jenis', 'lokasi', 'status', 'ipAddress','ssid', 'macAddress', 'deviceType', 'userId', 'controlMode', 
                 // TAMBAHKAN ATTRIBUTES STATUS MANUAL BARU
                 'pumpState', 'solenoid1State', 'solenoid2State', 'solenoid3State', 'solenoid4State', 'solenoid5State', 'solenoid6State'
                 // Sesuaikan hingga jumlah maksimum solenoid Anda
@@ -179,7 +178,9 @@ export const getDeviceById = async (req, res) => {
 
         res.status(200).json(deviceData);
     } catch (error) {
-        res.status(500).json({ msg: error.message });
+       console.error("❌ CRITICAL ERROR IN getDeviceById:", error.message, error.stack);
+        // Kirim 500 dengan pesan error yang aman
+        res.status(500).json({ msg: "Gagal mengambil detail perangkat di server.", error: error.message });
     }
 };
 

@@ -284,7 +284,7 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
     useEffect(() => {
         if (!device?.id) return;
 
-        const socketUrl = 'http://localhost:5000'; // GANTI SESUAI URL BACKEND ANDA
+        const socketUrl = 'http://37.44.244.108:5173'; // GANTI SESUAI URL BACKEND ANDA
         const socket = io(socketUrl);
 
         console.log("🔌 Menghubungkan Socket.IO...");
@@ -442,7 +442,6 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
                     <InfoRow icon={<FiTerminal />} label="MAC Address" value={device.macAddress} />
                     <InfoRow icon={<FaServer />} label="IP Address" value={realtimeDeviceInfo.ipAddress} />
                     <InfoRow icon={<FiWifi />} label="SSID" value={realtimeDeviceInfo.ssid} />
-                    <InfoRow icon={<FiWifi />} label="Connection Type" value={deviceExtraInfo.connectionType} />
                     
                     <div className="flex items-center justify-between py-3">
                         <div className="flex items-center">

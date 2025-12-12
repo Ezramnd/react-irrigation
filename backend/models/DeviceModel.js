@@ -40,6 +40,14 @@ const Devices = db.define('devices', {
         defaultValue: 'inactive',
         allowNull: false
     },
+    ipAddress: {
+        type: DataTypes.STRING,
+        allowNull: true // Boleh null awalnya, sampai perangkat mendaftar
+    },
+    ssid: {
+        type: DataTypes.STRING,
+        allowNull: true // SSID juga bisa null
+    },
     macAddress: {
         type: DataTypes.STRING,
         allowNull: true, // Boleh null awalnya, sampai perangkat mendaftar

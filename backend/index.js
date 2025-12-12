@@ -126,13 +126,13 @@ try {
 app.use(cors({
     credentials: true,
     origin: [
-        FRONTEND_URL, "http://localhost:5173", "http://192.168.1.18:8081", "http://localhost:8081", "http://localhost:5000"
+        FRONTEND_URL, "http://localhost:5173", "http://37.44.244.108:8081", "http://localhost:8081", "http://localhost:5000"
         // Tambahkan origin ini
     ]
 })); 
 
 // ✅ AKTIFKAN DAN KONFIGURASI CORS DI SINI
-// app.use(cors({ credentials: true, origin: [FRONTEND_URL, 'http://192.168.1.18:8081'] }));
+// app.use(cors({ credentials: true, origin: [FRONTEND_URL, 'http://37.44.244.108:8081'] }));
 // // Ganti 192.168.1.10 dengan IP lokal komputer Anda. 
 // Port 8081 adalah default Expo.
 // Atau cara paling mudah untuk development:
@@ -296,6 +296,48 @@ mqttClient.on('message', async (topic, message) => {
 
         } catch (e) {
             console.error("Gagal memproses pesan log:", e);
+        }
+        return;
+    }
+
+    // Topik Info untuk Irigasi (misal: ezramnd/esp32/alat/IRRIGATION-XXXX/info)
+    if (topicStr.endsWith("/info") && topicStr.startsWith(`${mqttOptions.username}/esp32/alat/IRRIGATION-`)) {
+        try {
+            // 1. Ekstrak MAC Address
+            const combinedId = topicStr.split('/')[3]; 
+            const separatorIndex = combinedId.indexOf('-');
+            if (separatorIndex === -1) return;
+            const simpleMacAddress = combinedId.substring(separatorIndex + 1);
+            const formattedMacAddress = simpleMacAddress.match(/.{1,2}/g).join(':');
+
+            // 2. Parse Payload JSON
+            const data = JSON.parse(messageStr);
+
+            // 3. Update Database
+            const [updatedRows] = await Devices.update(
+                { 
+                    ipAddress: data.ipAddress, 
+                    ssid: data.ssid,
+                    firmware: data.firmware,
+                },
+                { where: { macAddress: formattedMacAddress } }
+            );
+
+            if (updatedRows > 0) {
+                console.log(`✅ INFO JARINGAN berhasil diupdate untuk ${formattedMacAddress}.`);
+                
+                // 4. Kirim ke Frontend (Socket.IO)
+                // Ini akan memicu listener 'device_status_update' di frontend dashboard
+                io.emit('device_status_update', {
+                    macAddress: formattedMacAddress,
+                    ipAddress: data.ipAddress,
+                    ssid: data.ssid,
+                    firmware: data.firmware,
+                    status: 'active' // Asumsi jika kirim info, dia pasti online
+                });
+            }
+        } catch (error) {
+            console.error(`❌ Gagal memproses data INFO dari ${topicStr}:`, error.message);
         }
         return;
     }

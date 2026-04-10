@@ -126,13 +126,13 @@ try {
 app.use(cors({
     credentials: true,
     origin: [
-        FRONTEND_URL, "http://localhost:5173", "http://37.44.244.108:8081", "http://localhost:8081", "http://localhost:5000"
+        FRONTEND_URL,"http://192.168.1.103:5173", "http://localhost:5173", "http://192.168.1.103:8081", "http://localhost:8081", "http://localhost:5000"
         // Tambahkan origin ini
     ]
 })); 
 
 // ✅ AKTIFKAN DAN KONFIGURASI CORS DI SINI
-// app.use(cors({ credentials: true, origin: [FRONTEND_URL, 'http://37.44.244.108:8081'] }));
+// app.use(cors({ credentials: true, origin: [FRONTEND_URL, 'http://192.168.1.9:8081'] }));
 // // Ganti 192.168.1.10 dengan IP lokal komputer Anda. 
 // Port 8081 adalah default Expo.
 // Atau cara paling mudah untuk development:
@@ -269,8 +269,8 @@ mqttClient.on('message', async (topic, message) => {
             const formattedMacAddress = simpleMacAddress.match(/.{1,2}/g).join(':');
 
             // 2. Cari Perangkat (Device)
-            const device = await Devices.findOne({ where: { macAddress: formattedMacAddress } });
-            if (!device) {
+            const devices = await Devices.findAll({ where: { macAddress: formattedMacAddress } });
+            if (!devices || devices.length === 0) {
                 console.log(`Log diterima, tapi perangkat ${formattedMacAddress} tidak ditemukan.`);
                 return;
             }
@@ -279,20 +279,21 @@ mqttClient.on('message', async (topic, message) => {
             const logData = JSON.parse(message.toString());
 
             // 4. Buat Log di Database
-            await ScheduleLog.create({
-                nama: logData.nama,
-                tanggal: logData.tanggal,
-                waktu: logData.waktu,
-                durasi: logData.durasi,
-                solenoid: logData.solenoid,
-                internet: logData.internet,
-                status: logData.status,
-                // Ubah Unix timestamp (detik) dari ESP32 ke JavaScript Date object (milidetik)
-                timestamp: new Date(logData.timestamp * 1000), 
-                userId: device.userId,
-                deviceId: device.id
-            });
-            console.log(`✅ Log jadwal untuk perangkat ${device.nama} berhasil disimpan.`);
+            await Promise.all(devices.map(async (device) => {
+                await ScheduleLog.create({
+                    nama: logData.nama,
+                    tanggal: logData.tanggal,
+                    waktu: logData.waktu,
+                    durasi: logData.durasi,
+                    solenoid: logData.solenoid,
+                    internet: logData.internet,
+                    status: logData.status,
+                    timestamp: new Date(logData.timestamp * 1000), 
+                    userId: device.userId,
+                    deviceId: device.id // ID unik per user
+                });
+            }));
+            console.log(`✅ Log jadwal untuk perangkat dengan MAC Address ${formattedMacAddress} berhasil disimpan.`);
 
         } catch (e) {
             console.error("Gagal memproses pesan log:", e);
@@ -379,114 +380,92 @@ mqttClient.on('message', async (topic, message) => {
     }
 
     //climate
-    const climateMatch = topicStr.match(climateSyncRequestTopicPattern);
-    if (climateMatch) {
-        const macAddress = climateMatch[1].replace(/-/g, ':');
-        handleClimateSyncRequest(macAddress);
+    // -------------------------------------------------------------------------
+    // 4. HANDLER: CLIMATE SYSTEM (ESP32 Climate)
+    // -------------------------------------------------------------------------
+    // Ciri Khas: Topik mengandung "/climate/"
+    if (topicStr.includes("/climate/esp32/alat/")) {
+        
+        // A. Sync Request Climate
+        const climateMatch = topicStr.match(climateSyncRequestTopicPattern);
+        if (climateMatch) {
+            const macAddress = climateMatch[1].replace(/-/g, ':');
+            handleClimateSyncRequest(macAddress);
             return;
-    }
+        }
 
-    if (topicStr.startsWith(`${mqttOptions.username}/climate/esp32/alat/`) && topicStr.endsWith("/status")) {
+        // B. Status Kipas (Update Realtime)
+        if (topicStr.endsWith("/status")) {
             try {
                 const data = JSON.parse(messageStr);
                 if (data.kipas1) {
-                    lastRelay1State = data.kipas1; // "ON" or "OFF"
+                    lastRelay1State = data.kipas1;
                     io.emit('update_relay_1', lastRelay1State);
-                    console.log(`[Status] Kipas 1 diupdate ke: ${lastRelay1State}`);
                 }
                 if (data.kipas2) {
-                    lastRelay2State = data.kipas2; // "ON" or "OFF"
+                    lastRelay2State = data.kipas2;
                     io.emit('update_relay_2', lastRelay2State);
-                    console.log(`[Status] Kipas 2 diupdate ke: ${lastRelay2State}`);
                 }
-            } catch (error) {
-                console.error(`Gagal memproses status from ${topicStr}:`, error.message);
-            }
-            return; // Selesai
+            } catch (e) { console.error("Error status climate:", e.message); }
+            return;
         }
 
-    if (topicStr.startsWith(`${mqttOptions.username}/climate/esp32/alat/`) && topicStr.endsWith("/data")) {
-        try {
-            const macAddressWithHyphen = topicStr.split('/')[4]; 
-            const macAddress = macAddressWithHyphen.replace(/-/g, ':');
-            console.log(`[Debug] Mencari device dengan MAC (format colon): ${macAddress}`);
+        // C. Data Sensor Climate (Suhu/Kelembaban)
+        if (topicStr.endsWith("/data")) {
+            try {
+                const parts = topicStr.split('/');
+                // Asumsi struktur: username/climate/esp32/alat/[MAC]/data
+                const macPart = parts[4]; 
+                const macAddress = macPart.replace(/-/g, ':');
 
-            const device = await Devices.findOne({ where: { macAddress: macAddress } });
-            if (!device) {
-                console.warn(`Data sensor diterima dari MAC ${macAddress} yang tidak terdaftar.`);
-                return;
-            }
+                const devices = await Devices.findAll({ where: { macAddress: macAddress } });
+                
+                if (!devices || devices.length === 0) {
+                    console.warn(`Climate Data: Device ${macAddress} tidak dikenal.`);
+                    return;
+                }
 
-            const messageStr = message.toString();
+                const data = JSON.parse(messageStr);
 
-            const data = JSON.parse(messageStr);
-            
-            // 1. Ambil status TERAKHIR dari Database (Bukan dari variabel global server)
-            // Ini penting agar server 'sadar' jika baru saja ada perubahan manual via Controller
-            const lastLog = await ClimateData.findOne({
-                where: { deviceId: device.id },
-                order: [['createdAt', 'DESC']], // Ambil yang paling baru
-            });
+                // Update Status Kipas Realtime (Priority dari Data Sensor)
+                let finalKipas1 = lastRelay1State;
+                let finalKipas2 = lastRelay2State;
 
-            // 2. Tentukan status default berdasarkan database terakhir
-            let finalKipas1 = lastLog ? lastLog.kipas1_status : "OFF";
-            let finalKipas2 = lastLog ? lastLog.kipas2_status : "OFF";
+                if (data.kipas1) finalKipas1 = data.kipas1;
+                if (data.kipas2) finalKipas2 = data.kipas2;
+                
+                // Update Global Var & Socket
+                lastRelay1State = finalKipas1;
+                lastRelay2State = finalKipas2;
+                io.emit('update_relay_1', finalKipas1);
+                io.emit('update_relay_2', finalKipas2);
+                io.emit('update_suhu', data.suhu);
+                io.emit('update_kelembaban', data.kelembaban);
 
-            // 3. Jika paket data sensor MENGANDUNG status kipas, update statusnya.
-            // (Jika sensor hanya kirim suhu, status kipas tetap ikut database terakhir/Manual)
-            if (data.kipas1) finalKipas1 = data.kipas1;
-            if (data.kipas2) finalKipas2 = data.kipas2;
+                // --- LOGIKA SIMPAN DATABASE (30 Detik) ---
+                const currentTime = Date.now();
+                await Promise.all(devices.map(async (device) => {
+                    const lastSave = deviceLastSaveTime[device.id] || 0;
 
-              // --------------8DES---------------------
-            lastRelay1State = finalKipas1;
-            lastRelay2State = finalKipas2;
-
-            // 4. Update Socket IO agar tampilan frontend real-time
-            io.emit('update_relay_1', finalKipas1);
-            io.emit('update_relay_2', finalKipas2);
-
-            // 5. Simpan Log Baru
-            const newClimateEntry = await ClimateData.create({
-                suhu: data.suhu,
-                kelembaban: data.kelembaban,
-                kipas1_status: finalKipas1, // Gunakan status yang sudah disinkronkan
-                kipas2_status: finalKipas2, 
-                deviceId: device.id 
-            });
-
-            console.log(`✅ Data sensor dari ${macAddress} (ID: ${device.id}) berhasil disimpan.`);
-
-            io.emit('update_suhu', data.suhu);
-            io.emit('update_kelembaban', data.kelembaban);
-            
-            const currentTime = Date.now();
-            const lastSave = deviceLastSaveTime[device.id] || 0;
-
-            if (currentTime - lastSave >= SAVE_INTERVAL_MS) {
-                const newClimateEntry = await ClimateData.create({
-                    suhu: data.suhu,
-                    kelembaban: data.kelembaban,
-                    kipas1_status: finalKipas1, 
-                    kipas2_status: finalKipas2, 
-                    deviceId: device.id 
-                });
-
-                deviceLastSaveTime[device.id] = currentTime;
-
-                io.emit('new_historical_data');
-                io.emit('new_climate_data', newClimateEntry);
-
-            console.log(`💾 [DATABASE] Data tersimpan untuk ${device.nama} (Interval > 30s).`);
-            } else {
-                console.log(`⏩ [SKIP DB] Data diterima tapi belum 30s (${device.nama}). Socket.IO tetap update.`);
-            }
-            
-        } catch (error) {
-            console.error(`Gagal memproses/menyimpan data sensor dari ${topicStr}:`, error.message);
+                    if (currentTime - lastSave >= SAVE_INTERVAL_MS) {
+                        await ClimateData.create({
+                            suhu: data.suhu,
+                            kelembaban: data.kelembaban,
+                            kipas1_status: finalKipas1,
+                            kipas2_status: finalKipas2,
+                            deviceId: device.id // ID unik milik masing-masing user
+                        });
+                        
+                        deviceLastSaveTime[device.id] = currentTime;
+                        console.log(`💾 [CLIMATE DB] Disimpan untuk UserID: ${device.userId}`);
+                    }
+                }));
+            } catch (e) { console.error("Error data climate:", e.message); }
+            return;
         }
-        return; 
-        }
- // --------------------------------------------------------
+    }
+
+    // --------------------------------------------------------
     // 1. LOGIKA DOSING SYSTEM (AZIS) - FIXED SPLIT TOPIC
     // --------------------------------------------------------
     if (topicStr.startsWith(`${mqttOptions.username}/esp32/alat/`) && topicStr.includes("/dosing/")) {
@@ -508,7 +487,7 @@ mqttClient.on('message', async (topic, message) => {
                 dosingStates[macAddress].tempSuhu = suhuVal;
                 
                 // console.log(`🌡️ [DOSING] Suhu Masuk: ${suhuVal} (Pending TDS...)`);
-                io.emit('update_suhu', { mac: macAddress, value: suhuVal });
+                io.emit('suhu_air', { mac: macAddress, value: suhuVal });
             }
 
             // B. DATA TDS (LOGIKA INTERVAL 1 MENIT)
@@ -523,41 +502,39 @@ mqttClient.on('message', async (topic, message) => {
                 io.emit('update_tds', { mac: macAddress, value: tdsVal });
 
                 // 3. LOGIKA INTERVAL PENYIMPANAN DATABASE
-                const device = await Devices.findOne({ where: { macAddress: macAddress } });
+               const devices = await Devices.findAll({ where: { macAddress: macAddress } });
                 
-                if (device) {
+                if (devices && devices.length > 0) {
                     const currentTime = Date.now();
-                    const lastSave = dosingLastSaveTime[device.id] || 0; // Waktu simpan terakhir
+                    
+                    // Loop penyimpanan untuk setiap user
+                    await Promise.all(devices.map(async (device) => {
+                        const lastSave = dosingLastSaveTime[device.id] || 0;
 
-                    // Cek: Apakah sudah berlalu 1 Menit (60.000ms) sejak simpan terakhir?
-                    if (currentTime - lastSave >= DOSING_SAVE_INTERVAL_MS) {
-                        
-                        // Siapkan Data
-                        const dataToSave = {
-                            tds: dosingStates[macAddress].tempTDS,
-                            suhu: dosingStates[macAddress].tempSuhu,
-                            pa: dosingStates[macAddress].pumpA,
-                            pb: dosingStates[macAddress].pumpB
-                        };
+                        if (currentTime - lastSave >= DOSING_SAVE_INTERVAL_MS) {
+                            
+                            const dataToSave = {
+                                tds: dosingStates[macAddress].tempTDS,
+                                suhu: dosingStates[macAddress].tempSuhu,
+                                pa: dosingStates[macAddress].pumpA,
+                                pb: dosingStates[macAddress].pumpB
+                            };
 
-                        // Simpan ke Database
-                        await DosingData.create({
-                            deviceId: device.id,
-                            tds_air: dataToSave.tds,
-                            suhu_air: dataToSave.suhu,
-                            pompa_a_status: dataToSave.pa,
-                            pompa_b_status: dataToSave.pb
-                        });
+                            await DosingData.create({
+                                deviceId: device.id, // ID unik per user
+                                tds_air: dataToSave.tds,
+                                suhu_air: dataToSave.suhu,
+                                pompa_a_status: dataToSave.pa,
+                                pompa_b_status: dataToSave.pb
+                            });
 
-                        // Update Waktu Simpan Terakhir menjadi SEKARANG
-                        dosingLastSaveTime[device.id] = currentTime;
-
-                        console.log(`[DATABASE] Data Dosing Tersimpan (Interval 1 Menit). ID: ${device.id}`);
-                        io.emit('new_dosing_data'); // Trigger tabel history di frontend refresh
-                    } else {
-                        // Jika belum 1 menit, abaikan penyimpanan DB (hanya update RAM/Socket)
-                        // console.log(`[SKIP DB] Belum 1 menit.`);
-                    }
+                            dosingLastSaveTime[device.id] = currentTime;
+                            console.log(`💾 [DOSING DB] Disimpan untuk UserID: ${device.userId}`);
+                        }
+                    }));
+                    
+                    io.emit('new_dosing_data'); 
+                    
                 } else {
                     console.error(`[ERROR] Device MAC ${macAddress} tidak ditemukan di Database!`);
                 }

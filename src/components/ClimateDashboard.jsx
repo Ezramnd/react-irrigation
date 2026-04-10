@@ -78,7 +78,7 @@ const handleDownloadCSV = async () => {
 
             const allData = response.data; 
 
-            const headers = ['Tanggal', 'Jam', 'Suhu (°C)', 'Kelembaban (%)', 'Kipas 1', 'Kipas 2'];
+            const headers = ['Tanggal', 'Jam', 'Suhu (°C)', 'Kelembaban (%)', 'Exhaust Fan', 'Circulation Fan'];
             
             const rows = allData.map(row => {
                 const suhuNum = parseFloat(row.suhu);
@@ -200,8 +200,8 @@ const handleDownloadCSV = async () => {
                                 <th scope="col" className="px-3 md:px-6 py-2 md:py-3 text-left text-xs md:text-sm font-medium text-gray-700 uppercase tracking-wider">Tanggal & Jam</th>
                                 <th scope="col" className="px-3 md:px-6 py-2 md:py-3 text-left text-xs md:text-sm font-medium text-gray-700 uppercase tracking-wider">Suhu</th>
                                 <th scope="col" className="px-3 md:px-6 py-2 md:py-3 text-left text-xs md:text-sm font-medium text-gray-700 uppercase tracking-wider">Kelembaban</th>
-                                <th scope="col" className="px-3 md:px-6 py-2 md:py-3 text-left text-xs md:text-sm font-medium text-gray-700 uppercase tracking-wider">Kipas 1</th>
-                                <th scope="col" className="px-3 md:px-6 py-2 md:py-3 text-left text-xs md:text-sm font-medium text-gray-700 uppercase tracking-wider">Kipas 2</th>
+                                <th scope="col" className="px-3 md:px-6 py-2 md:py-3 text-left text-xs md:text-sm font-medium text-gray-700 uppercase tracking-wider">Exhaust Fan</th>
+                                <th scope="col" className="px-3 md:px-6 py-2 md:py-3 text-left text-xs md:text-sm font-medium text-gray-700 uppercase tracking-wider">Circulation Fan</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
@@ -296,13 +296,13 @@ return (
     <hr className="mb-4 border-gray-200" />
     <div className="space-y-3">
       <ToggleSwitch 
-        label="Kipas 1" 
+        label="Exhaust Fan" 
         isEnabled={isKipas1On} 
         onToggle={handleToggleKipas1} 
         disabled={disabled} 
       />
       <ToggleSwitch 
-        label="Kipas 2" 
+        label="Circulation Fan" 
         isEnabled={isKipas2On} 
         onToggle={handleToggleKipas2} 
         disabled={disabled} 
@@ -337,25 +337,25 @@ const ThresholdDisplayCard = ({ thresholds, isActive = true }) => {
       <hr className="mb-4 border-gray-200" />
       <div className="space-y-3">
         <ThresholdItem 
-          label="Suhu Minimal (Kipas 1 OFF)" 
+          label="Suhu Minimal (Exhaust Fan OFF)" 
           value={thresholds.kipas1_min} 
           iconColorClass="text-blue-600"
           bgColorClass="bg-blue-100"
         />
         <ThresholdItem 
-          label="Suhu Maksimal (Kipas 1 ON)" 
+          label="Suhu Maksimal (Exhaust Fan ON)" 
           value={thresholds.kipas1_max} 
           iconColorClass="text-red-600"
           bgColorClass="bg-red-100"
         />
         <ThresholdItem 
-          label="Suhu Minimal (Kipas 2 OFF)" 
+          label="Suhu Minimal (Circulation Fan OFF)" 
           value={thresholds.kipas2_min} 
           iconColorClass="text-blue-600"
           bgColorClass="bg-blue-100"
         />
         <ThresholdItem 
-          label="Suhu Maksimal (Kipas 2 ON)" 
+          label="Suhu Maksimal (Circulation Fan ON)" 
           value={thresholds.kipas2_max} 
           iconColorClass="text-red-600"
           bgColorClass="bg-red-100"
@@ -479,7 +479,7 @@ const ClimateDashboard = ({ deviceId, initialSchedules, initialSettings }) => {
     const [tableRefetchTrigger, setTableRefetchTrigger] = useState(0);
     
     useEffect(() => {
-        socketRef.current = io('http://37.44.244.108:5173');
+        socketRef.current = io('http://192.168.1.103:5000');
         const socket = socketRef.current;
 
         socket.on('update_suhu', (data) => {
@@ -881,14 +881,14 @@ const ClimateDashboard = ({ deviceId, initialSchedules, initialSettings }) => {
         { title: 'Suhu', value: suhu, unit: '°C', icon: <FaThermometerHalf size={24} />, onControl: null },
         { title: 'Kelembaban', value: kelembaban, unit: '%', icon: <FaTint size={24} />, onControl: null },
         { 
-           title: 'Status Kipas 1', 
+           title: 'Status Exhaust Fan', 
             value: statusKipas1.value, 
             statusInfo: statusKipas1.statusInfo, 
             icon: <FaFan size={24} />,
             onControl: null
         },
         { 
-            title: 'Status Kipas 2', 
+            title: 'Status Circulation Fan', 
             value: statusKipas2.value, 
             statusInfo: statusKipas2.statusInfo, 
             icon: <FaFan size={24} />,

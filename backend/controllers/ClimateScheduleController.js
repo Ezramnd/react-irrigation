@@ -38,6 +38,17 @@ const createClimateModeTopicFromMac = (macAddress) => {
     return `climate/esp32/alat/${topicMac}/climate-mode/set`; 
 }
 
+const getRelatedDeviceIds = async (deviceId) => {
+    const currentDevice = await Devices.findByPk(deviceId, { attributes: ['macAddress'] });
+    if (!currentDevice || !currentDevice.macAddress) return [deviceId];
+
+    const relatedDevices = await Devices.findAll({
+        where: { macAddress: currentDevice.macAddress },
+        attributes: ['id']
+    });
+    return relatedDevices.map(d => d.id);
+};
+
 export const manualClimateControl = async (req, res) => {
     const { deviceId } = req.params;
     // Body akan berisi: { "target": "fan1", "state": "ON" }
@@ -433,19 +444,17 @@ export const getClimateData = async (req, res) => {
             return res.status(403).json({ msg: "Akses ditolak" });
         }
 
-        // 2. Ambil query paginasi (Sudah benar)
+        const relatedIds = await getRelatedDeviceIds(deviceId);
+
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const offset = (page - 1) * limit;
 
-        // 3. Gunakan findAndCountAll
-        const { count, rows } = await ClimateData.findAndCountAll({
-            where: { deviceId: deviceId },
-            
-            // --- PERBAIKAN DI SINI ---
-            order: [['createdAt', 'DESC']], // <-- BENAR (camelCase 'A')
-            // --- AKHIR PERBAIKAN ---
-
+       const { count, rows } = await ClimateData.findAndCountAll({
+            where: { 
+                deviceId: { [Op.in]: relatedIds } // <--- Pakai Op.in array ID
+            },
+            order: [['createdAt', 'DESC']],
             limit: limit,
             offset: offset
         });
@@ -481,20 +490,16 @@ export const getClimateChartData = async (req, res) => {
             return res.status(403).json({ msg: "Akses ditolak" });
         }
 
-        // 2. Ambil data 24 jam terakhir
-        const chartData = await ClimateData.findAll({
+        const relatedIds = await getRelatedDeviceIds(deviceId);
+
+       const chartData = await ClimateData.findAll({
             where: {
-                deviceId: deviceId,
+                deviceId: { [Op.in]: relatedIds }, // <--- Pakai Op.in
                 createdAt: {
-                    // [Op.gt] = "Greater Than" (Lebih besar dari)
-                    [Op.gt]: new Date(new Date() - 24 * 60 * 60 * 1000) // 24 jam lalu
+                    [Op.gt]: new Date(new Date() - 24 * 60 * 60 * 1000) 
                 }
             },
-            // Kirim dalam urutan Terbaru dulu. 
-            // Nanti di frontend (RealtimeApexChart) akan me-reverse-nya.
             order: [['createdAt', 'DESC']], 
-            
-            // Hanya ambil kolom yang kita butuhkan untuk chart
             attributes: ['suhu', 'kelembaban', 'createdAt'] 
         });
 
@@ -519,10 +524,12 @@ export const deleteClimateData = async (req, res) => {
             return res.status(403).json({ msg: "Akses ditolak" });
         }
 
+        const relatedIds = await getRelatedDeviceIds(deviceId);
+
         // 2. Hapus semua data climate yang terkait dengan deviceId ini
         await ClimateData.destroy({
             where: {
-                deviceId: deviceId
+                deviceId: { [Op.in]: relatedIds } // <--- Pakai Op.in
             }
         });
 
@@ -548,13 +555,13 @@ export const getAllClimateData = async (req, res) => {
             return res.status(403).json({ msg: "Akses ditolak" });
         }
 
-        // 2. Ambil SEMUA data (tanpa limit/offset)
+        const relatedIds = await getRelatedDeviceIds(deviceId);
+
         const allData = await ClimateData.findAll({
             where: {
-                deviceId: deviceId
+                deviceId: { [Op.in]: relatedIds } // <--- Pakai Op.in
             },
-            order: [['createdAt', 'DESC']], // Urutkan dari terbaru
-            // Kita tidak butuh semua kolom, ambil yang perlu saja
+            order: [['createdAt', 'DESC']], 
             attributes: ['createdAt', 'suhu', 'kelembaban', 'kipas1_status', 'kipas2_status']
         });
 
@@ -586,12 +593,13 @@ export const deleteFilteredClimateData = async (req, res) => {
             return res.status(403).json({ msg: "Akses ditolak" });
         }
 
-        // 2. Hapus data yang LEBIH TUA (Less Than) dari tanggal batas
+        const relatedIds = await getRelatedDeviceIds(deviceId);
+
         const result = await ClimateData.destroy({
             where: {
-                deviceId: deviceId,
+                deviceId: { [Op.in]: relatedIds }, // <--- Pakai Op.in
                 createdAt: {
-                    [Op.lt]: cutoffDate // [Op.lt] = Less Than (lebih kecil dari / lebih tua dari)
+                    [Op.lt]: cutoffDate 
                 }
             }
         });

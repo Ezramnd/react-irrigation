@@ -51,7 +51,7 @@ const Devices = db.define('devices', {
     macAddress: {
         type: DataTypes.STRING,
         allowNull: true, // Boleh null awalnya, sampai perangkat mendaftar
-        unique: true
+        unique: false
     },
     deviceType: {
         type: DataTypes.STRING, // Akan menyimpan "IRRIGATION", "CLIMATE", dll.

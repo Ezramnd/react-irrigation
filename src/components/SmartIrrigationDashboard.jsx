@@ -2,14 +2,159 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { FiCpu, FiWifi, FiTerminal, FiClock, FiPower, FiToggleRight, FiDroplet, FiSearch, FiRefreshCw, FiWifiOff } from 'react-icons/fi';
+import { FiCpu, FiWifi, FiTerminal, FiClock, FiPower, FiToggleRight, FiDroplet, FiSearch, FiRefreshCw, FiWifiOff, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { FaServer } from 'react-icons/fa';
 import api from '../api';
 import { BsFiletypeCsv, BsFiletypeXlsx, BsTable } from 'react-icons/bs';
 import { toast } from 'react-hot-toast';
 import { io } from 'socket.io-client';
 
-// --- KOMPONEN DOWNLOAD BUTTON ---
+
+const LogTable = ({ data, isLoading, searchKeyword }) => {
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10; // Menampilkan 10 item per halaman
+
+    // Reset halaman ke 1 jika keyword pencarian berubah
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchKeyword]);
+
+    // Logic Pagination Client-Side
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentItems = data.slice(indexOfFirstItem, indexOfLastItem);
+    const totalPages = Math.ceil(data.length / itemsPerPage);
+
+    const onPageChange = (pageNumber) => setCurrentPage(pageNumber);
+
+    const renderPaginationButtons = () => {
+        if (totalPages <= 1) return null;
+        let buttons = [];
+        
+        // Tombol Previous
+        buttons.push(
+            <button
+                key="prev"
+                onClick={() => onPageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+            >
+                <FiChevronLeft className="h-5 w-5" />
+            </button>
+        );
+
+        // Logic Angka Halaman
+        for (let i = 1; i <= totalPages; i++) {
+            if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
+                buttons.push(
+                    <button
+                        key={i}
+                        onClick={() => onPageChange(i)}
+                        className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium ${
+                            i === currentPage
+                                ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                                : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                    >
+                        {i}
+                    </button>
+                );
+            } else if (i === currentPage - 2 || i === currentPage + 2) {
+                buttons.push(<span key={`dots-${i}`} className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">...</span>);
+            }
+        }
+
+        // Tombol Next
+        buttons.push(
+            <button
+                key="next"
+                onClick={() => onPageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+            >
+                <FiChevronRight className="h-5 w-5" />
+            </button>
+        );
+        return buttons;
+    };
+
+    return (
+        <div className="flex flex-col">
+            <div className="overflow-x-auto -mx-4 sm:mx-0 rounded-lg border border-gray-200">
+                <div className="inline-block min-w-full align-middle">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th scope="col" className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Waktu Eksekusi</th>
+                                <th scope="col" className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Jadwal</th>
+                                <th scope="col" className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
+                                <th scope="col" className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jam</th>
+                                <th scope="col" className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Durasi</th>
+                                <th scope="col" className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Solenoid</th>
+                                <th scope="col" className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Koneksi</th>
+                                <th scope="col" className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {isLoading ? (
+                                <tr>
+                                    <td colSpan="8" className="px-6 py-10 text-center text-sm text-gray-500">
+                                        <div className="flex justify-center items-center gap-2">
+                                            <FiRefreshCw className="animate-spin text-blue-500" /> Memuat data log...
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : currentItems.length > 0 ? (
+                                currentItems.map((log) => (
+                                    <tr key={log.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-3 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm text-gray-600 font-mono">
+                                            {formatTimestamp(log.createdAt || log.timestamp)}
+                                        </td>
+                                        <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{log.nama}</td>
+                                        <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500">{log.tanggal}</td>
+                                        <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500">{log.waktu}</td>
+                                        <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500">{log.durasi} mnt</td>
+                                        <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500">{log.solenoid}</td>
+                                        <td className="px-3 md:px-6 py-4 whitespace-nowrap">
+                                            <StatusBadge status={log.internet === 'Online' ? 'active' : 'inactive'} />
+                                        </td>
+                                        <td className="px-3 md:px-6 py-4 whitespace-nowrap">
+                                            <LogStatusBadge status={log.status} />
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan="8" className="px-6 py-10 text-center text-sm text-gray-500">
+                                        {searchKeyword ? 'Tidak ada log yang sesuai pencarian.' : 'Belum ada data log.'}
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 0 && (
+                <nav className="flex items-center justify-between pt-4" aria-label="Pagination">
+                    <div className="hidden sm:block">
+                        <p className="text-sm text-gray-700">
+                            Menampilkan <span className="font-medium">{indexOfFirstItem + 1}</span> sampai <span className="font-medium">{Math.min(indexOfLastItem, data.length)}</span> dari <span className="font-medium">{data.length}</span> hasil
+                        </p>
+                    </div>
+                    <div className="flex-1 flex justify-between sm:justify-end">
+                        <div className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                            {renderPaginationButtons()}
+                        </div>
+                    </div>
+                </nav>
+            )}
+        </div>
+    );
+};
+
+// --- KOMPONEN DOWNLOAD BUTTON (Tidak Ada Perubahan) ---
 const DownloadButton = ({ data, filename, format }) => {
     const downloadData = () => {
         let csvContent = '';
@@ -55,20 +200,22 @@ const DownloadButton = ({ data, filename, format }) => {
             });
         }
     };
-
+    // STYLE BARU
+    const colorClass = format === 'csv' ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700';
+    
     return (
         <button 
             onClick={downloadData}
-            className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 transition-colors flex items-center text-sm"
-            title={`Unduh dalam format ${format.toUpperCase()}`}
+            className={`px-3 py-1.5 md:px-4 md:py-2 text-white rounded-lg font-semibold text-xs md:text-sm flex items-center space-x-2 transition-colors ${colorClass}`}
+            title={`Unduh ${format.toUpperCase()}`}
         >
-            {format === 'csv' ? <BsFiletypeCsv className="mr-1" /> : <BsFiletypeXlsx className="mr-1" />}
-            {format.toUpperCase()}
+            {format === 'csv' ? <BsFiletypeCsv className="h-4 w-4" /> : <BsFiletypeXlsx className="h-4 w-4" />}
+            <span>{format.toUpperCase()}</span>
         </button>
     );
 };
 
-// --- KOMPONEN CONTROL SWITCH ---
+// --- KOMPONEN CONTROL SWITCH (Tidak Ada Perubahan) ---
 const ControlSwitch = ({ label, id, isOn, onToggle, icon }) => (
     <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200">
         <div className="flex items-center">
@@ -88,7 +235,7 @@ const ControlSwitch = ({ label, id, isOn, onToggle, icon }) => (
     </div>
 );
 
-// --- KOMPONEN INFO ROW ---
+// --- KOMPONEN INFO ROW (Tidak Ada Perubahan) ---
 const InfoRow = ({ icon, label, value }) => (
     <div className="flex items-center justify-between py-3 border-b border-gray-200 last:border-b-0">
         <div className="flex items-center">
@@ -99,7 +246,7 @@ const InfoRow = ({ icon, label, value }) => (
     </div>
 );
 
-// --- KOMPONEN BADGES ---
+// --- KOMPONEN BADGES (Tidak Ada Perubahan) ---
 const StatusBadge = ({ status }) => {
     const isActive = status === 'active' || status === 'Online';
     return (
@@ -122,7 +269,7 @@ const LogStatusBadge = ({ status }) => {
     );
 };
 
-// --- FORMATTER TANGGAL ---
+// --- FORMATTER TANGGAL (Tidak Ada Perubahan) ---
 const formatTimestamp = (isoDate) => {
     if (!isoDate) return 'N/A';
     const date = new Date(isoDate);
@@ -161,37 +308,6 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
     });
     const [pumpState, setPumpState] = useState(false);
     
-    // --- 1a. FUNGSI UNTUK MENGAMBIL STATUS MANUAL TERAKHIR ---
-    // const fetchManualState = async () => {
-    //     if (!device?.id) return;
-
-    //     try {
-    //         console.log("[DEBUG] Mengambil status kontrol manual terakhir.");
-    //         // ASUMSI: Backend memiliki endpoint untuk status alat
-    //         const response = await api.get(`/devices/${device.id}/status`); 
-            
-    //         const { manualControl } = response.data; // Asumsi format data: { ..., manualControl: { solenoid1: true, pump: false, ... } }
-
-    //         if (manualControl) {
-    //             // Update state solenoid
-    //             const newSolenoidStates = {};
-    //             for (let i = 1; i <= device.solenoidCount; i++) {
-    //                 const key = `solenoid${i}`;
-    //                 // Ambil status dari backend, default ke false jika tidak ada
-    //                 newSolenoidStates[key] = manualControl[key] === 'ON'; 
-    //             }
-    //             setSolenoidStates(newSolenoidStates);
-
-    //             // Update state pompa
-    //             setPumpState(manualControl.pump === 'ON');
-    //         }
-    //         console.log("[DEBUG] Status manual diinisialisasi:", manualControl);
-    //     } catch (error) {
-    //         console.error("Gagal mengambil status manual terakhir:", error);
-    //     }
-    // };
-    // //
-
     // --- 1. INITIALIZATION EFFECT (Runs when 'device' props change) ---
     useEffect(() => {
     if (device) {
@@ -231,14 +347,11 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
 
         console.log("[DEBUG] Status manual diinisialisasi dari props:", initialStates);
         
-        // Hapus Blok A lama di sini
-
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [device]);
 
     // --- 2. FETCH LOGS FUNCTION ---
-    // Didefinisikan di sini agar bisa dipanggil oleh useEffect maupun Socket
     const fetchLogs = async () => {
         if (!device?.id) {
             setIsLoadingLogs(false);
@@ -258,8 +371,9 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
                     log.macAddress === device.macAddress || log.deviceId === device.id
                 );
 
-                // Sort logs terbaru di atas (descending by timestamp)
-                logsAlatIni.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                // --- PERUBAHAN UTAMA DI SINI: Sorting menggunakan createdAt ---
+                // Sort logs terbaru di atas (descending by createdAt)
+                logsAlatIni.sort((a, b) => new Date(b.createdAt || b.timestamp) - new Date(a.createdAt || a.timestamp));
 
                 console.log(`[DEBUG] Ditemukan ${logsAlatIni.length} log untuk alat ini.`);
                 setScheduleLogs(logsAlatIni);
@@ -274,17 +388,17 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
         }
     };
 
-    // --- 3. TRIGGER FETCH LOGS ON MOUNT ---
+    // --- 3. TRIGGER FETCH LOGS ON MOUNT (Tidak Ada Perubahan) ---
     useEffect(() => {
         fetchLogs();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [device?.id, device?.macAddress]);
 
-    // --- 4. SOCKET.IO CONNECTION ---
+    // --- 4. SOCKET.IO CONNECTION (Tidak Ada Perubahan) ---
     useEffect(() => {
         if (!device?.id) return;
 
-        const socketUrl = 'http://37.44.244.108:5173'; // GANTI SESUAI URL BACKEND ANDA
+        const socketUrl = 'http://192.168.1.103:5000'; // GANTI SESUAI URL BACKEND ANDA
         const socket = io(socketUrl);
 
         console.log("🔌 Menghubungkan Socket.IO...");
@@ -344,7 +458,7 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
     }, [device?.id, device?.macAddress]);
 
 
-    // --- FUNGSI UNTUK MENGIRIM PERINTAH MANUAL ---
+    // --- FUNGSI UNTUK MENGIRIM PERINTAH MANUAL (Tidak Ada Perubahan) ---
     const sendManualCommand = async (payload, revertStateCallback) => {
         try {
             const commandPayload = {
@@ -363,7 +477,7 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
         }
     };
 
-    // Handler untuk Solenoid
+    // Handler untuk Solenoid (Tidak Ada Perubahan)
     const handleSolenoidToggle = (solenoidKey) => {
         const newState = !solenoidStates[solenoidKey];
         const solenoidId = parseInt(solenoidKey.replace('solenoid', ''), 10);
@@ -378,7 +492,7 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
         );
     };
 
-    // Handler untuk Pompa
+    // Handler untuk Pompa (Tidak Ada Perubahan)
     const handlePumpToggle = () => {
         const newState = !pumpState;
         setPumpState(newState); // Update UI optimis
@@ -401,7 +515,7 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
     };
     const daftarJadwal = device?.schedules || [];
 
-    // Filtering Logic
+    // Filtering Logic (Tidak Ada Perubahan)
     const filteredJadwal = daftarJadwal.filter(jadwal => 
         jadwal.nama?.toLowerCase().includes(searchJadwal.toLowerCase()) ||
         jadwal.tanggalMulai?.toLowerCase().includes(searchJadwal.toLowerCase()) ||
@@ -417,7 +531,8 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
             log.waktu?.toLowerCase().includes(searchLower) ||
             log.solenoid?.toLowerCase().includes(searchLower) ||
             log.status?.toLowerCase().includes(searchLower) ||
-            log.internet?.toLowerCase().includes(searchLower)
+            log.internet?.toLowerCase().includes(searchLower) ||
+            log.createdAt?.toLowerCase().includes(searchLower) // Tambahkan createdAt ke pencarian
         );
     });
 
@@ -434,7 +549,7 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
     // --- RENDER UTAMA ---
     return (
         <div className="grid grid-cols-1 gap-6">
-            {/* 1. Informasi Alat */}
+            {/* 1. Informasi Alat (Tidak Ada Perubahan) */}
             <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl shadow-lg">
                 <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-3">Informasi Alat</h3>
                 <div className="space-y-2">
@@ -458,7 +573,7 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
                 </div>
             </motion.div>
 
-            {/* 2. Kontrol Manual */}
+            {/* 2. Kontrol Manual (Tidak Ada Perubahan) */}
              <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl shadow-lg">
                 <h3 className="text-lg font-bold text-gray-800 mb-4 border-b pb-3 flex items-center">
                     <FiToggleRight className="mr-2" /> Kontrol Manual
@@ -478,7 +593,7 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
                         <ControlSwitch 
                             key={key}
                             id={key}
-                            label={`Solenoid  ${index + 1}`}
+                            label={`Baris  ${index + 1}`}
                             isOn={solenoidStates[key]}
                             onToggle={() => handleSolenoidToggle(key)}
                         />
@@ -486,11 +601,11 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
                 </div>
             </motion.div>
 
-            {/* 3. BLOK JADWAL */}
+            {/* 3. BLOK JADWAL (Tidak Ada Perubahan) */}
             <motion.div variants={itemVariants} className="bg-white p-4 md:p-6 rounded-2xl shadow-lg">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b pb-4">
                     <h2 className="text-xl font-bold text-gray-800 flex items-center">
-                         <FiClock className="mr-2" /> Jadwal Penyiraman
+                           <FiClock className="mr-2" /> Jadwal Penyiraman
                     </h2>
                     <div className="flex flex-wrap gap-2 mt-3 sm:mt-0">
                         <DownloadButton 
@@ -575,16 +690,8 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b pb-4">
                     <h2 className="text-xl font-bold text-gray-800">Log Eksekusi Jadwal</h2>
                     <div className="flex flex-wrap gap-2 mt-3 sm:mt-0">
-                        <DownloadButton 
-                            data={filteredLogs} 
-                            filename="log-jadwal" 
-                            format="csv"
-                        />
-                        <DownloadButton 
-                            data={filteredLogs} 
-                            filename="log-jadwal" 
-                            format="xlsx"
-                        />
+                        <DownloadButton data={filteredLogs} filename="log-jadwal" format="csv" />
+                        <DownloadButton data={filteredLogs} filename="log-jadwal" format="xlsx" />
                     </div>
                 </div>
 
@@ -599,57 +706,12 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
                     />
                 </div>
 
-                <div ref={logTableRef} className="overflow-x-auto rounded-lg border">
-                    <table className="w-full text-sm text-left text-gray-600 min-w-full divide-y divide-gray-200">
-                        <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                            <tr>
-                                <th scope="col" className="px-4 py-3 sm:px-6">Waktu Eksekusi</th>
-                                <th scope="col" className="px-4 py-3 sm:px-6">Nama Jadwal</th>
-                                <th scope="col" className="px-4 py-3 sm:px-6">Tanggal Terjadwal</th>
-                                <th scope="col" className="px-4 py-3 sm:px-6">Jam Pemicu</th>
-                                <th scope="col" className="px-4 py-3 sm:px-6">Durasi (mnt)</th>
-                                <th scope="col" className="px-4 py-3 sm:px-6">Solenoid</th>
-                                <th scope="col" className="px-4 py-3 sm:px-6">Koneksi</th>
-                                <th scope="col" className="px-4 py-3 sm:px-6">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                            {isLoadingLogs ? (
-                                <tr><td colSpan="8" className="text-center p-4">
-                                    <div className="flex justify-center items-center space-x-2">
-                                        <FiRefreshCw className="animate-spin text-blue-500" />
-                                        <span>Memuat log...</span>
-                                    </div>
-                                </td></tr>
-                            ) : filteredLogs.length === 0 ? (
-                                <tr><td colSpan="8" className="text-center p-4">
-                                    {searchLogs ? 'Tidak ada log yang sesuai dengan pencarian.' : 'Belum ada log eksekusi.'}
-                                </td></tr>
-                            ) : (
-                                filteredLogs.map((log) => (
-                                    <tr key={log.id} className="bg-white hover:bg-gray-50 transition-colors">
-                                        <td className="px-4 py-3 sm:px-6 font-mono text-xs">{formatTimestamp(log.timestamp)}</td>
-                                        <td className="px-4 py-3 sm:px-6 font-medium text-gray-900">{log.nama}</td>
-                                        <td className="px-4 py-3 sm:px-6">{log.tanggal}</td>
-                                        <td className="px-4 py-3 sm:px-6">{log.waktu}</td>
-                                        <td className="px-4 py-3 sm:px-6">{log.durasi}</td>
-                                        <td className="px-4 py-3 sm:px-6">{log.solenoid}</td>
-                                        <td className="px-4 py-3 sm:px-6">
-                                            <StatusBadge status={log.internet === 'Online' ? 'active' : 'inactive'} />
-                                        </td>
-                                        <td className="px-4 py-3 sm:px-6">
-                                            <LogStatusBadge status={log.status} />
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-                <div className="mt-2 text-xs text-gray-500 flex items-center">
-                    <BsTable className="mr-1" /> 
-                    Menampilkan {filteredLogs.length} dari {scheduleLogs.length} log
-                </div>
+                <LogTable 
+                    data={filteredLogs}
+                    isLoading={isLoadingLogs}
+                    searchKeyword={searchLogs}
+                />
+                
             </motion.div>
         </div>
     );

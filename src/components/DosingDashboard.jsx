@@ -6,7 +6,7 @@ import { FaTint, FaThermometerHalf, FaCrosshairs, FaHandPaper, FaClock, FaInfoCi
 import { FiDownload, FiChevronLeft, FiChevronRight, FiTrash2 } from 'react-icons/fi';
 
 // Hapus inisialisasi socket di luar agar tidak double connection saat re-render
-// const socket = io('http://localhost:5000'); 
+// const socket = io('http://192.168.1.103:5000'); 
 
 // --- KOMPONEN REUSABLE ---
 
@@ -268,7 +268,7 @@ const DosingDataTable = ({ data, isLoading, currentPage, totalPages, onPageChang
 
 const DosingDashboard = ({ deviceId }) => {
   const [tds, setTds] = useState(0);
-  const [suhu, setSuhu] = useState(0);
+  const [suhu_air, setSuhu] = useState(0);
   
   // STATE BARU: Untuk Status Online/Offline
   const [isOnline, setIsOnline] = useState(false);
@@ -354,7 +354,7 @@ const DosingDashboard = ({ deviceId }) => {
 
 // 3. SOCKET CONNECTION DENGAN WATCHDOG
   useEffect(() => {
-    const socketUrl = `http://${window.location.hostname}:5000`; 
+    const socketUrl = `http://192.168.1.103:5000`; 
     const socketInstance = io(socketUrl); 
     let watchdogTimer;
 
@@ -384,7 +384,7 @@ const DosingDashboard = ({ deviceId }) => {
         heartBeat(); // ✅ TETAP ADA: Data sensor = Alat Hidup
     });
 
-    socketInstance.on("update_suhu", (payload) => {
+    socketInstance.on("suhu_air", (payload) => {
         const val = payload.value !== undefined ? payload.value : payload;
         setSuhu(parseFloat(val).toFixed(1));
         heartBeat(); // ✅ TETAP ADA: Data sensor = Alat Hidup
@@ -489,7 +489,7 @@ const DosingDashboard = ({ deviceId }) => {
         {/* CARD SUHU - Hybrid Status */}
         <StatCard 
             title="Suhu" 
-            value={suhu} 
+            value={suhu_air} 
             unit="°C" 
             icon={isOnline ? <FaThermometerHalf /> : <FaExclamationCircle />} 
             statusInfo={{ 

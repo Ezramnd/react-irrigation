@@ -479,7 +479,7 @@ const ClimateDashboard = ({ deviceId, initialSchedules, initialSettings }) => {
     const [tableRefetchTrigger, setTableRefetchTrigger] = useState(0);
     
     useEffect(() => {
-        socketRef.current = io('http://192.168.1.103:5000');
+        socketRef.current = io('http://192.168.1.100:5000');
         const socket = socketRef.current;
 
         socket.on('update_suhu', (data) => {

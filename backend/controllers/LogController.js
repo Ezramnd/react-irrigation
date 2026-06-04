@@ -5,7 +5,7 @@ export const getScheduleLogs = async (req, res) => {
     try {
         const options = {
             order: [['timestamp', 'DESC']], // Tampilkan yang terbaru dulu
-            limit: 100 // Batasi 100 log terbaru
+            limit: 200 // Batasi 100 log terbaru
         };
 
         // Admin bisa lihat semua, user biasa hanya miliknya

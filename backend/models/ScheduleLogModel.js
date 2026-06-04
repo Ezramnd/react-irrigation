@@ -6,6 +6,10 @@ import Devices from "./DeviceModel.js";
 const { DataTypes } = Sequelize;
 
 const ScheduleLog = db.define('schedule_log', {
+    executionId: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
     nama: {
         type: DataTypes.STRING,
         allowNull: false
@@ -34,7 +38,11 @@ const ScheduleLog = db.define('schedule_log', {
         type: DataTypes.STRING,
         allowNull: false
     },
-    // Kita simpan timestamp asli dari ESP32
+    reason: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        defaultValue: "OK"
+    },
     timestamp: {
         type: DataTypes.DATE,
         allowNull: false
@@ -48,10 +56,15 @@ const ScheduleLog = db.define('schedule_log', {
         allowNull: false
     }
 }, {
-    freezeTableName: true
+    freezeTableName: true,
+    indexes: [
+        {
+            unique: true,
+            fields: ['executionId', 'deviceId']
+        }
+    ]
 });
 
-// Definisikan Relasi
 Users.hasMany(ScheduleLog, { foreignKey: 'userId' });
 ScheduleLog.belongsTo(Users, { foreignKey: 'userId' });
 

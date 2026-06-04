@@ -116,7 +116,7 @@ const LogTable = ({ data, isLoading, searchKeyword }) => {
                                         <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500">{log.durasi} mnt</td>
                                         <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500">{log.solenoid}</td>
                                         <td className="px-3 md:px-6 py-4 whitespace-nowrap">
-                                            <StatusBadge status={log.internet === 'Online' ? 'active' : 'inactive'} />
+                                            <StatusBadge status={log.internet === 'Online' ? 'Online' : 'Offline'} />
                                         </td>
                                         <td className="px-3 md:px-6 py-4 whitespace-nowrap">
                                             <LogStatusBadge status={log.status} />
@@ -398,7 +398,7 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
     useEffect(() => {
         if (!device?.id) return;
 
-        const socketUrl = 'http://192.168.1.103:5000'; // GANTI SESUAI URL BACKEND ANDA
+        const socketUrl = 'http://192.168.1.100:5000'; // GANTI SESUAI URL BACKEND ANDA
         const socket = io(socketUrl);
 
         console.log("🔌 Menghubungkan Socket.IO...");

@@ -8,7 +8,7 @@ import api from '../api';
 import MainLayout from '../components/MainLayout';
 import QrScanner from '../components/QrScanner';
 
-const socket = io(`http://192.168.1.103:5000`);
+const socket = io(`http://192.168.1.100:5000`);
 
 // --- Komponen Kartu Alat ---
 const AlatCard = ({ alat, onClick }) => { 
@@ -922,7 +922,7 @@ const ModalKontrolDosing = ({ alat, onClose, onEdit }) => {
         fetchInitialData();
 
         // B. --- SOCKET CONNECTION (REALTIME) ---
-        const socketUrl = `http://192.168.1.103:5000`; 
+        const socketUrl = `http://192.168.1.100:5000`; 
         const socket = io(socketUrl);
 
         // Helper Normalisasi MAC (Penting agar data tidak tertukar)

@@ -74,6 +74,19 @@ const Devices = db.define('devices', {
         defaultValue: 'auto'
     },
 
+    lastStatusAt: {
+    type: DataTypes.DATE,
+    allowNull: true
+    },
+    lastOfflineAt: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
+    lastOnlineAt: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
+
     // Tambahkan field untuk Pompa
     pumpState: {
         type: DataTypes.ENUM('ON', 'OFF'),

@@ -41,9 +41,16 @@ export const createDevice = async (req, res) => {
         // Pembatasan MAC Address
         // Jika MAC Address diberikan, cek dulu apakah sudah terpakai
         if (macAddress) {
-            const existingMac = await Devices.findOne({ where: { macAddress } });
+            const existingMac = await Devices.findOne({ 
+                where: { 
+                    macAddress: macAddress,
+                    userId: req.userId // <--- FILTER BERDASARKAN USER ID
+                } 
+            });
+            
+            // Jika ketemu, berarti User INI sudah punya alat itu
             if (existingMac) {
-                return res.status(409).json({ msg: "MAC Address ini sudah terdaftar." });
+                return res.status(400).json({ msg: "Anda sudah menambahkan alat ini sebelumnya di akun Anda." });
             }
         }
 
@@ -77,9 +84,16 @@ export const updateDevice = async (req, res) => {
 
         // Validasi duplikasi MAC Address saat mengubah
         if (macAddress && macAddress !== device.macAddress) {
-            const existingMac = await Devices.findOne({ where: { macAddress } });
+            const existingMac = await Devices.findOne({ 
+                where: { 
+                    macAddress: macAddress,
+                    userId: req.userId, // Cek di user ini saja
+                    id: { [Op.ne]: device.id } // Pastikan bukan alat yang sedang diedit ini
+                } 
+            });
+            
             if (existingMac) {
-                return res.status(409).json({ msg: "MAC Address ini sudah digunakan oleh alat lain." });
+                return res.status(409).json({ msg: "Anda sudah memiliki alat lain dengan MAC Address ini." });
             }
         }
         
@@ -215,7 +229,10 @@ export const sendManualCommand = async (req, res) => {
 
         if (target === 'pump') {
             dbUpdate.pumpState = state; // 'ON' atau 'OFF'
-            mqttPayload.pump = state;
+            mqttPayload = {
+                target: 'pump',
+                state: state // Menghasilkan format {"pump": "ON"} atau {"pump": "OFF"}
+            };
         } else if (solenoidId) {
             const stateField = `solenoid${solenoidId}State`;
 

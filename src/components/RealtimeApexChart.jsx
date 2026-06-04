@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Chart from 'react-apexcharts';
 
+// Definisi Offset WIB (UTC+7) dalam milidetik
+const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
+
 const SmartIrrigationChart = () => {
   // State untuk konfigurasi chart
   const [options, setOptions] = useState({
@@ -66,45 +69,53 @@ const SmartIrrigationChart = () => {
    */
   const generateIrrigationData = (days) => {
     const data = [];
-    const now = new Date();
+    const nowUTC = new Date();
     const wateringDurationMinutes = 15;
 
-    // Mulai dari 'days' hari yang lalu
-    let currentDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    // Hitung waktu sekarang dalam WIB (mengabaikan zona waktu lokal browser)
+    // Ini adalah waktu acuan *di Jakarta* saat ini.
+    const nowWIB = new Date(nowUTC.getTime() + WIB_OFFSET_MS - nowUTC.getTimezoneOffset() * 60 * 1000);
+    
+    // Mulai dari 'days' hari yang lalu (dalam konteks WIB)
+    let currentDateWIB = new Date(nowWIB.getTime() - days * 24 * 60 * 60 * 1000);
+    
+    // Setel tanggal awal simulasi ke awal hari (00:00:00 WIB)
+    currentDateWIB.setHours(0, 0, 0, 0);
 
     // Tambahkan titik awal untuk memastikan grafik mulai dari 'OFF'
-    data.push({ x: currentDate.getTime(), y: 0 });
+    // Kita menyimpan timestamp UTC (getTime()), tetapi memastikan nilainya
+    // setara dengan 00:00:00 WIB.
+    data.push({ x: currentDateWIB.getTime(), y: 0 });
 
     let dayCounter = 0;
-    while (currentDate <= now) {
+    while (currentDateWIB <= nowWIB) {
       // Cek apakah ini hari penyiraman (setiap 3 hari)
       if (dayCounter % 3 === 0) {
-        // Asumsikan penyiraman dimulai jam 8 pagi
-        const wateringStartTime = new Date(currentDate);
-        wateringStartTime.setHours(8, 0, 0, 0);
+        const wateringStartTimeWIB = new Date(currentDateWIB);
+        wateringStartTimeWIB.setHours(8, 0, 0, 0); // Di-set jam 8 pagi WIB
 
-        const wateringEndTime = new Date(wateringStartTime.getTime() + wateringDurationMinutes * 60 * 1000);
+        const wateringEndTimeWIB = new Date(wateringStartTimeWIB.getTime() + wateringDurationMinutes * 60 * 1000);
         
-        // Hanya tambahkan data jika waktu penyiraman belum lewat hari ini
-        if (wateringStartTime < now) {
+        // Hanya tambahkan data jika waktu penyiraman belum lewat hari ini (dalam WIB)
+        if (wateringStartTimeWIB < nowWIB) {
             // Titik sebelum ON (untuk stepline)
-            data.push({ x: wateringStartTime.getTime() - 1, y: 0 });
+            data.push({ x: wateringStartTimeWIB.getTime() - 1, y: 0 });
             // Titik saat ON
-            data.push({ x: wateringStartTime.getTime(), y: 100 });
+            data.push({ x: wateringStartTimeWIB.getTime(), y: 100 });
             // Titik saat akan OFF
-            data.push({ x: wateringEndTime.getTime(), y: 100 });
+            data.push({ x: wateringEndTimeWIB.getTime(), y: 100 });
             // Titik setelah OFF
-            data.push({ x: wateringEndTime.getTime() + 1, y: 0 });
+            data.push({ x: wateringEndTimeWIB.getTime() + 1, y: 0 });
+          }
         }
-      }
 
       // Lanjut ke hari berikutnya
-      currentDate.setDate(currentDate.getDate() + 1);
+      currentDateWIB.setDate(currentDateWIB.getDate() + 1);
       dayCounter++;
     }
     
-    // Pastikan titik terakhir adalah 'OFF' di waktu sekarang
-    data.push({ x: now.getTime(), y: 0 });
+    // Pastikan titik terakhir adalah 'OFF' di waktu sekarang (WIB)
+    data.push({ x: nowWIB.getTime(), y: 0 });
 
     return data;
   };

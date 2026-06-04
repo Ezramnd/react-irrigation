@@ -16,6 +16,23 @@ const createDosingTopic = (macAddress, subTopic) => {
     return `esp32/alat/${topicMac}/dosing/${subTopic}`; 
 }
 
+const getRelatedDeviceIds = async (deviceId) => {
+    // 1. Cari MAC Address dari ID alat yang sedang dibuka
+    const currentDevice = await Devices.findByPk(deviceId, { attributes: ['macAddress'] });
+    
+    // Jika tidak ada MAC, kembalikan ID itu sendiri
+    if (!currentDevice || !currentDevice.macAddress) return [deviceId];
+
+    // 2. Cari semua alat lain yang punya MAC Address sama
+    const relatedDevices = await Devices.findAll({
+        where: { macAddress: currentDevice.macAddress },
+        attributes: ['id']
+    });
+
+    // 3. Kembalikan array ID (contoh: [1, 5, 8])
+    return relatedDevices.map(d => d.id);
+};
+
 // 1. AMBIL PENGATURAN
 export const getDosingSettings = async (req, res) => {
     try {
@@ -207,12 +224,14 @@ export const getDosingData = async (req, res) => {
         
         if (!id) return res.status(400).json({ msg: "Device ID tidak valid." });
 
+        const relatedIds = await getRelatedDeviceIds(id); // Pakai helper
+
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const offset = (page - 1) * limit;
 
         const { count, rows } = await DosingData.findAndCountAll({
-            where: { deviceId: id }, 
+            where: { deviceId: { [Op.in]: relatedIds } }, 
             order: [['createdAt', 'DESC']],
             limit: limit,
             offset: offset,
@@ -235,10 +254,11 @@ export const getDosingData = async (req, res) => {
 export const getAllDosingData = async (req, res) => {
     try {
         const { id } = req.params;
-        const deviceId = id;
+
+        const relatedIds = await getRelatedDeviceIds(id);
 
         const rows = await DosingData.findAll({
-            where: { deviceId: deviceId },
+            where: { deviceId: { [Op.in]: relatedIds } },
             order: [['createdAt', 'DESC']],
             attributes: ['tds_air', 'suhu_air', 'pompa_a_status', 'pompa_b_status', 'createdAt']
         });
@@ -255,10 +275,12 @@ export const getDosingChartData = async (req, res) => {
         const { id } = req.params;
 
         if (!id) return res.status(400).json({ msg: "Device ID tidak valid." });
+
+        const relatedIds = await getRelatedDeviceIds(id);
         
         const chartData = await DosingData.findAll({
             where: {
-                deviceId: id,
+                deviceId: { [Op.in]: relatedIds },
                 createdAt: { [Op.gt]: new Date(new Date() - 24 * 60 * 60 * 1000) } 
             },
             order: [['createdAt', 'ASC']], 
@@ -276,12 +298,14 @@ export const getDosingChartData = async (req, res) => {
 export const deleteDosingData = async (req, res) => {
     try {
         const { id } = req.params;
+
+        const relatedIds = await getRelatedDeviceIds(id);
         
         const device = await Devices.findByPk(id);
         if (!device) return res.status(404).json({ msg: "Alat tidak ditemukan" });
 
         await DosingData.destroy({
-            where: { deviceId: id }
+            where: { deviceId: { [Op.in]: relatedIds } }
         });
 
         res.status(200).json({ msg: "Semua riwayat dosing berhasil dihapus." });
@@ -297,6 +321,8 @@ export const deleteFilteredDosingData = async (req, res) => {
         const { id } = req.params;
         const { days } = req.body; 
 
+        const relatedIds = await getRelatedDeviceIds(id);
+
         if (!days) return res.status(400).json({ msg: "Parameter 'days' diperlukan." });
 
         const device = await Devices.findByPk(id);
@@ -307,7 +333,7 @@ export const deleteFilteredDosingData = async (req, res) => {
 
         const deletedCount = await DosingData.destroy({
             where: {
-                deviceId: id,
+                deviceId: { [Op.in]: relatedIds },
                 createdAt: {
                     [Op.lt]: dateLimit 
                 }
@@ -326,9 +352,11 @@ export const getLatestDosingData = async (req, res) => {
     try {
         const { id } = req.params;
 
+        const relatedIds = await getRelatedDeviceIds(id);
+
         // Ambil 1 data paling baru (DESC = Descending)
         const response = await DosingData.findOne({
-            where: { deviceId: id },
+            where: { deviceId: { [Op.in]: relatedIds } },
             order: [
                 ['createdAt', 'DESC']
             ],

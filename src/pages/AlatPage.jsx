@@ -346,11 +346,19 @@ const ModalFormJadwalClimate = ({ onSave, onClose, jadwalToEdit }) => {
                     <div><label className="block text-sm font-medium">Durasi Menyala (Menit) <span className="text-red-500">*</span></label><input required type="number" value={jadwal.durasi} onChange={e => setJadwal(prev => ({ ...prev, durasi: parseInt(e.target.value) || 0 }))} min="1" className="mt-1 w-full p-2 border rounded-md"/></div>
                     
                     {/* --- 5. JSX: Diubah untuk 'fans' --- */}
-                    <div>
-                        <label className="block text-sm font-medium">Pilih Kipas <span className="text-red-500">*</span></label>
+                     <div>
+                        {/* <label className="block text-sm font-medium">Pilih Kipas <span className="text-red-500">*</span></label> */}
+                        <label className="block text-sm font-medium text-gray-700">
+                            Pilih Kipas <span className="text-red-500">*</span>
+                            
+                            {/* Keterangan Kipas 1 & 2 */}
+                            <span className="ml-2 text-xs text-gray-500 font-normal">
+                                (Kipas 1: Exhaust Fan, Kipas 2: Circulation Fan)
+                            </span>
+                        </label>
                         <div className="flex flex-wrap gap-2 mt-2">
                             
-                            {/* Hanya Kipas 1 dan 2 */}
+                            {/* Hanya Exhaust Fan dan 2 */}
                             {[1, 2].map(id => (
                                 <button 
                                     type="button" 
@@ -384,10 +392,10 @@ const ModalFormJadwalClimate = ({ onSave, onClose, jadwalToEdit }) => {
 const ModalKontrolClimate = ({ alat, onClose, onEdit }) => {
     
     const [settings, setSettings] = useState({
-        minSuhuKipas1: 28, // Suhu Kipas 1 OFF
-        maxSuhuKipas1: 30, // Suhu Kipas 1 ON
-        minSuhuKipas2: 33, // Suhu Kipas 2 OFF
-        maxSuhuKipas2: 35  // Suhu Kipas 2 ON
+        minSuhuKipas1: 28, // Suhu Exhaust Fan OFF
+        maxSuhuKipas1: 30, // Suhu Exhaust Fan ON
+        minSuhuKipas2: 33, // Suhu Circulation Fan OFF
+        maxSuhuKipas2: 35  // Suhu Circulation Fan ON
     });
     const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
@@ -433,11 +441,11 @@ const ModalKontrolClimate = ({ alat, onClose, onEdit }) => {
 
     const handleSaveSettings = async () => {
         if (settings.minSuhuKipas1 >= settings.maxSuhuKipas1) {
-            toast.error("Pengaturan Kipas 1 tidak valid: Suhu OFF harus lebih rendah dari suhu ON.");
+            toast.error("Pengaturan Exhaust Fan tidak valid: Suhu OFF harus lebih rendah dari suhu ON.");
             return;
         }
         if (settings.minSuhuKipas2 >= settings.maxSuhuKipas2) {
-            toast.error("Pengaturan Kipas 2 tidak valid: Suhu OFF harus lebih rendah dari suhu ON.");
+            toast.error("Pengaturan Circulation Fan tidak valid: Suhu OFF harus lebih rendah dari suhu ON.");
             return;
         }
 
@@ -518,65 +526,137 @@ const ModalKontrolClimate = ({ alat, onClose, onEdit }) => {
                     </div>
                     
                     <div className="flex-grow p-6 overflow-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* --- Pengaturan Otomatis (Treshold) --- */}
+                         {/* --- Pengaturan Otomatis (Treshold) --- */}
                         <div className="bg-white p-6 rounded-xl shadow-md flex flex-col">
                             <h3 className="text-xl font-bold text-gray-800 mb-4 border-b pb-4">Pengaturan Otomatis (Treshold)</h3>
                             {isLoadingSettings ? <p>Memuat...</p> : (
                                 <div className="space-y-6 flex-grow flex flex-col justify-between">
                                     <div className="space-y-6">
                                         <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">Suhu Minimal (Kipas 1 OFF)</label>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">Suhu Minimal (Exhaust Fan OFF)</label>
                                             <div className="flex items-center gap-4">
                                                 <FaThermometerHalf className="text-blue-500" />
                                                 <input 
-                                                    type="range" min="15" max="40" 
+                                                    type="range" min="15" max="60" 
                                                     value={settings.minSuhuKipas1} 
                                                     onChange={(e) => setSettings(s => ({...s, minSuhuKipas1: Number(e.target.value)}))} 
                                                     className="w-full" 
                                                 />
-                                                <span className="font-bold text-blue-600 bg-blue-100 px-3 py-1 rounded-md">{settings.minSuhuKipas1}°C</span>
+                                                {/* <span className="font-bold text-blue-600 bg-blue-100 px-3 py-1 rounded-md">{settings.minSuhuKipas1}°C</span> */}
+                                                <div className="relative w-24 flex-shrink-0">
+                                                <input 
+                                                    type="number" 
+                                                    min="15" 
+                                                    max="60" 
+                                                    value={settings.minSuhuKipas1} 
+                                                    onChange={(e) => {
+                                                        let val = Number(e.target.value);
+                                                        if (val > 60) val = 60; // Batas atas
+                                                        if (val < 0) val = 0;   // Batas bawah safety
+                                                        setSettings(s => ({...s, minSuhuKipas1: val}));
+                                                    }} 
+                                                    // className="w-full pl-3 pr-8 py-1 border border-gray-300 rounded-md font-bold text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    className="w-full pl-3 pr-8 py-1 rounded-md font-bold text-blue-600 bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
+                                                />
+                                                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-500 font-bold pointer-events-none">
+                                                    °C</span>
+                                                </div>
                                             </div>
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">Suhu Maksimal (Kipas 1 ON)</label>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">Suhu Maksimal (Exhaust Fan ON)</label>
                                             <div className="flex items-center gap-4">
                                                 <FaThermometerHalf className="text-red-500" />
                                                 <input 
-                                                    type="range" min="15" max="40" 
+                                                    type="range" min="15" max="60" 
                                                     value={settings.maxSuhuKipas1} 
                                                     onChange={(e) => setSettings(s => ({...s, maxSuhuKipas1: Number(e.target.value)}))} 
                                                     className="w-full" 
                                                 />
-                                                <span className="font-bold text-red-600 bg-red-100 px-3 py-1 rounded-md">{settings.maxSuhuKipas1}°C</span>
+                                                {/* <span className="font-bold text-red-600 bg-red-100 px-3 py-1 rounded-md">{settings.maxSuhuKipas1}°C</span> */}
+                                                <div className="relative w-24 flex-shrink-0">
+                                                <input 
+                                                    type="number" 
+                                                    min="15" 
+                                                    max="60" 
+                                                    value={settings.maxSuhuKipas1} 
+                                                    onChange={(e) => {
+                                                        let val = Number(e.target.value);
+                                                        if (val > 60) val = 60; // Batas atas
+                                                        if (val < 0) val = 0;   // Batas bawah safety
+                                                        setSettings(s => ({...s, maxSuhuKipas1: val}));
+                                                    }} 
+                                                    // className="w-full pl-3 pr-8 py-1 border border-gray-300 rounded-md font-bold text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    className="w-full pl-3 pr-8 py-1 rounded-md font-bold text-red-600 bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white transition-colors"
+                                                />
+                                                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-500 font-bold pointer-events-none">
+                                                    °C</span>
+                                                </div>
                                             </div>
                                         </div>
 
                                         <hr className="border-gray-300 my-2" />
 
                                         <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">Suhu Minimal (Kipas 2 OFF)</label>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">Suhu Minimal (Circulation Fan OFF)</label>
                                             <div className="flex items-center gap-4">
                                                 <FaThermometerHalf className="text-blue-500" />
                                                 <input 
-                                                    type="range" min="15" max="40" 
+                                                    type="range" min="15" max="60" 
                                                     value={settings.minSuhuKipas2} 
                                                     onChange={(e) => setSettings(s => ({...s, minSuhuKipas2: Number(e.target.value)}))} 
                                                     className="w-full" 
                                                 />
-                                                <span className="font-bold text-blue-600 bg-blue-100 px-3 py-1 rounded-md">{settings.minSuhuKipas2}°C</span>
+                                                {/* <span className="font-bold text-blue-600 bg-blue-100 px-3 py-1 rounded-md">{settings.minSuhuKipas2}°C</span> */}
+                                                <div className="relative w-24 flex-shrink-0">
+                                                <input 
+                                                    type="number" 
+                                                    min="15" 
+                                                    max="60" 
+                                                    value={settings.minSuhuKipas2} 
+                                                    onChange={(e) => {
+                                                        let val = Number(e.target.value);
+                                                        if (val > 60) val = 60; // Batas atas
+                                                        if (val < 0) val = 0;   // Batas bawah safety
+                                                        setSettings(s => ({...s, minSuhuKipas2: val}));
+                                                    }} 
+                                                    // className="w-full pl-3 pr-8 py-1 border border-gray-300 rounded-md font-bold text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    className="w-full pl-3 pr-8 py-1 rounded-md font-bold text-blue-600 bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors"
+                                                />
+                                                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-500 font-bold pointer-events-none">
+                                                    °C</span>
+                                                </div>
                                             </div>
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">Suhu Maksimal (Kipas 2 ON)</label>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">Suhu Maksimal (Circulation Fan ON)</label>
                                             <div className="flex items-center gap-4">
                                                 <FaThermometerHalf className="text-red-500" />
                                                 <input 
-                                                    type="range" min="15" max="40" 
+                                                    type="range" min="15" max="60" 
                                                     value={settings.maxSuhuKipas2} 
                                                     onChange={(e) => setSettings(s => ({...s, maxSuhuKipas2: Number(e.target.value)}))} 
                                                     className="w-full" 
                                                 />
-                                                <span className="font-bold text-red-600 bg-red-100 px-3 py-1 rounded-md">{settings.maxSuhuKipas2}°C</span>
+                                                {/* <span className="font-bold text-red-600 bg-red-100 px-3 py-1 rounded-md">{settings.maxSuhuKipas2}°C</span> */}
+                                                <div className="relative w-24 flex-shrink-0">
+                                                <input 
+                                                    type="number" 
+                                                    min="15" 
+                                                    max="60" 
+                                                    value={settings.maxSuhuKipas2} 
+                                                    onChange={(e) => {
+                                                        let val = Number(e.target.value);
+                                                        if (val > 60) val = 60; // Batas atas
+                                                        if (val < 0) val = 0;   // Batas bawah safety
+                                                        setSettings(s => ({...s, maxSuhuKipas2: val}));
+                                                    }} 
+                                                    // className="w-full pl-3 pr-8 py-1 border border-gray-300 rounded-md font-bold text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    className="w-full pl-3 pr-8 py-1 rounded-md font-bold text-red-600 bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white transition-colors"
+                                                />
+                                                <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-500 font-bold pointer-events-none">
+                                                    °C</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -584,8 +664,7 @@ const ModalKontrolClimate = ({ alat, onClose, onEdit }) => {
                                 </div>
                             )}
                         </div>
-
-                        
+                  
 
                         {/* --- Pengaturan Jadwal Otomatis --- */}
                         <div className="bg-white p-6 rounded-xl shadow-md flex flex-col">
@@ -843,7 +922,7 @@ const ModalKontrolDosing = ({ alat, onClose, onEdit }) => {
         fetchInitialData();
 
         // B. --- SOCKET CONNECTION (REALTIME) ---
-        const socketUrl = `http://${window.location.hostname}:5000`; 
+        const socketUrl = `http://37.44.244.108:5173`; 
         const socket = io(socketUrl);
 
         // Helper Normalisasi MAC (Penting agar data tidak tertukar)
@@ -907,7 +986,7 @@ const ModalKontrolDosing = ({ alat, onClose, onEdit }) => {
         });
 
         
-       socket.on("update_suhu", (payload) => {
+       socket.on("suhu_air", (payload) => {
 
             // Error terjadi lagi jika baris ini lupa dicopy ke listener suhu:
 

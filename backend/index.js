@@ -280,18 +280,95 @@ mqttClient.on('message', async (topic, message) => {
 
             // 4. Buat Log di Database
             await Promise.all(devices.map(async (device) => {
-                await ScheduleLog.create({
+                const matchedSchedule = await Schedules.findOne({
+                    where: {
+                        nama: logData.nama,
+                        userId: device.userId
+                    },
+                    include: [
+                        {
+                            model: Devices,
+                            where: { id: device.id },
+                            through: { attributes: [] }
+                        }
+                    ]
+                });
+
+                const scheduleKey =
+                    logData.schedule_id ||
+                    logData.scheduleId ||
+                    logData.id ||
+                    matchedSchedule?.id ||
+                    logData.nama;
+
+                const waktuKey = normalizeSingleWaktu(logData.waktu);
+                const executionDate = getExecutionDateFromLogData(logData);
+
+                const executionId = makeExecutionId(
+                    device.id,
+                    scheduleKey,
+                    executionDate,
+                    waktuKey
+                );
+
+                const timestampNumber = Number(logData.timestamp);
+
+                const timestamp = Number.isFinite(timestampNumber)
+                    ? new Date(timestampNumber > 9999999999 ? timestampNumber : timestampNumber * 1000)
+                    : new Date();
+
+                const internet =
+                    logData.internet ||
+                    logData.internet_status ||
+                    logData.internetStatus ||
+                    "Online";
+
+                const status =
+                    logData.status ||
+                    logData.execution_status ||
+                    logData.executionStatus ||
+                    "SUCCESS";
+
+                const reason =
+                    logData.reason ||
+                    (isFailedStatus(status) ? "DEVICE_OFFLINE" : "OK");
+
+                const dataLog = {
+                    executionId,
                     nama: logData.nama,
                     tanggal: logData.tanggal,
-                    waktu: logData.waktu,
+                    waktu: waktuKey,
                     durasi: logData.durasi,
-                    solenoid: logData.solenoid,
-                    internet: logData.internet,
-                    status: logData.status,
-                    timestamp: new Date(logData.timestamp * 1000), 
+                    solenoid: Array.isArray(logData.solenoid)
+                        ? logData.solenoid.join(",")
+                        : String(logData.solenoid),
+                    internet,
+                    status,
+                    reason,
+                    timestamp,
                     userId: device.userId,
-                    deviceId: device.id // ID unik per user
+                    deviceId: device.id
+                };
+
+                const existingLog = await ScheduleLog.findOne({
+                    where: {
+                        executionId,
+                        deviceId: device.id
+                    }
                 });
+
+                if (existingLog) {
+                    const existingIsSuccess = isSuccessStatus(existingLog.status);
+                    const incomingIsSuccess = isSuccessStatus(dataLog.status);
+
+                    if (existingIsSuccess && !incomingIsSuccess) {
+                        return;
+                    }
+
+                    await existingLog.update(dataLog);
+                } else {
+                    await ScheduleLog.create(dataLog);
+                }
             }));
             console.log(`✅ Log jadwal untuk perangkat dengan MAC Address ${formattedMacAddress} berhasil disimpan.`);
 
@@ -564,6 +641,326 @@ mqttClient.on('message', async (topic, message) => {
 
 mqttClient.on('error', (err) => console.error('❌ Error MQTT:', err));
 mqttClient.on('reconnect', () => console.log('🔄 Mencoba rekoneksi MQTT...'));
+
+const FAILED_CHECK_INTERVAL_MS = 60 * 1000;
+const FAILED_TOLERANCE_MS = 2 * 60 * 1000;
+const MAX_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+
+const FAILED_STATUS_VALUE = "Failed";
+const OFFLINE_INTERNET_VALUE = "Offline";
+
+function getJakartaDateFromDate(date) {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Jakarta",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+    }).formatToParts(date);
+
+    const year = parts.find(p => p.type === "year").value;
+    const month = parts.find(p => p.type === "month").value;
+    const day = parts.find(p => p.type === "day").value;
+
+    return `${year}-${month}-${day}`;
+}
+
+function getExecutionDateFromLogData(logData) {
+    const timestampNumber = Number(logData.timestamp);
+
+    if (Number.isFinite(timestampNumber)) {
+        const date = new Date(
+            timestampNumber > 9999999999
+                ? timestampNumber
+                : timestampNumber * 1000
+        );
+
+        return getJakartaDateFromDate(date);
+    }
+
+    const dates = String(logData.tanggal || "").match(/\d{4}-\d{2}-\d{2}/g);
+
+    if (dates && dates.length > 0) {
+        return dates[0];
+    }
+
+    return getTodayDateJakarta();
+}
+
+function normalizeSingleWaktu(value) {
+    const waktuList = normalizeWaktu(value);
+
+    if (waktuList.length > 0) {
+        return waktuList[0];
+    }
+
+    return String(value || "").slice(0, 5);
+}
+
+function makeExecutionId(deviceId, scheduleKey, executionDate, waktu) {
+    return `${deviceId}_${scheduleKey}_${executionDate}_${waktu}`;
+}
+
+function isSuccessStatus(status) {
+    const text = String(status || "").toLowerCase();
+    return text === "success" || text === "berhasil";
+}
+
+function isFailedStatus(status) {
+    const text = String(status || "").toLowerCase();
+    return text === "failed" || text === "gagal";
+}
+
+function getTodayDateJakarta() {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Jakarta",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+    }).formatToParts(new Date());
+
+    const year = parts.find(p => p.type === "year").value;
+    const month = parts.find(p => p.type === "month").value;
+    const day = parts.find(p => p.type === "day").value;
+
+    return `${year}-${month}-${day}`;
+}
+
+function normalizeToArray(value) {
+    if (value === null || value === undefined) return [];
+
+    if (Array.isArray(value)) return value;
+
+    if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (!trimmed) return [];
+
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) return parsed;
+        } catch (e) {}
+
+        return trimmed
+            .split(",")
+            .map(item => item.trim())
+            .filter(Boolean);
+    }
+
+    return [value];
+}
+
+function normalizeWaktu(value) {
+    return normalizeToArray(value)
+        .map(item => String(item).trim().slice(0, 5))
+        .filter(item => /^\d{1,2}:\d{2}$/.test(item))
+        .map(item => {
+            const [hour, minute] = item.split(":");
+            return `${hour.padStart(2, "0")}:${minute}`;
+        });
+}
+
+function normalizeSolenoid(value) {
+    return normalizeToArray(value)
+        .map(item => String(item).trim())
+        .filter(Boolean)
+        .join(",");
+}
+
+function getDateOnly(value) {
+    if (!value) return null;
+
+    const text = String(value);
+    const match = text.match(/\d{4}-\d{2}-\d{2}/);
+
+    return match ? match[0] : null;
+}
+
+function getScheduleDateRange(schedule) {
+    const startRaw =
+        schedule.tanggalMulai ||
+        schedule.tanggal_mulai ||
+        schedule.tanggalAwal ||
+        schedule.tanggal_awal ||
+        schedule.startDate ||
+        schedule.start_date ||
+        schedule.mulai;
+
+    const endRaw =
+        schedule.tanggalSelesai ||
+        schedule.tanggal_selesai ||
+        schedule.tanggalAkhir ||
+        schedule.tanggal_akhir ||
+        schedule.endDate ||
+        schedule.end_date ||
+        schedule.selesai;
+
+    const startDate = getDateOnly(startRaw);
+    const endDate = getDateOnly(endRaw);
+
+    if (startDate && endDate) {
+        return { startDate, endDate };
+    }
+
+    const rangeRaw =
+        schedule.tanggal ||
+        schedule.rentangTanggal ||
+        schedule.rentang_tanggal ||
+        schedule.periode;
+
+    if (rangeRaw) {
+        const dates = String(rangeRaw).match(/\d{4}-\d{2}-\d{2}/g);
+
+        if (dates && dates.length >= 2) {
+            return {
+                startDate: dates[0],
+                endDate: dates[1]
+            };
+        }
+
+        if (dates && dates.length === 1) {
+            return {
+                startDate: dates[0],
+                endDate: dates[0]
+            };
+        }
+    }
+
+    return {
+        startDate: null,
+        endDate: null
+    };
+}
+
+function getScheduleTanggalDisplay(schedule, dateRange) {
+    // Jika di database schedule.tanggal sudah berisi rentang tanggal,
+    // contoh: "2026-05-27 - 2026-05-30" atau "2026-05-27 s/d 2026-05-30"
+    if (schedule.tanggal && String(schedule.tanggal).trim() !== "") {
+        return String(schedule.tanggal).trim();
+    }
+
+    // Jika tanggal awal dan akhir ada di kolom terpisah
+    if (dateRange.startDate && dateRange.endDate) {
+        if (dateRange.startDate === dateRange.endDate) {
+            return dateRange.startDate;
+        }
+
+        return `${dateRange.startDate} - ${dateRange.endDate}`;
+        // Kalau ingin format s/d, pakai ini:
+        // return `${dateRange.startDate} s/d ${dateRange.endDate}`;
+    }
+
+    // Cadangan terakhir
+    return getTodayDateJakarta();
+}
+
+function isTodayInScheduleRange(today, range) {
+    if (!range.startDate || !range.endDate) return false;
+
+    return today >= range.startDate && today <= range.endDate;
+}
+
+function makeScheduleDateTimeJakarta(tanggal, waktu) {
+    return new Date(`${tanggal}T${waktu}:00+07:00`);
+}
+
+async function createFailedLogsForMissedSchedules() {
+    try {
+        const schedules = await Schedules.findAll({
+            include: [
+                {
+                    model: Devices,
+                    through: { attributes: [] }
+                }
+            ]
+        });
+
+        const today = getTodayDateJakarta();
+        const now = Date.now();
+
+        for (const scheduleInstance of schedules) {
+            const schedule = scheduleInstance.get
+                ? scheduleInstance.get({ plain: true })
+                : scheduleInstance;
+
+            const relatedDevices = schedule.Devices || schedule.devices || [];
+
+            if (!relatedDevices.length) continue;
+
+            const dateRange = getScheduleDateRange(schedule);
+
+            if (!isTodayInScheduleRange(today, dateRange)) {
+                continue;
+            }
+
+            const tanggalDisplay = getScheduleTanggalDisplay(schedule, dateRange);
+
+            const waktuList = normalizeWaktu(schedule.waktu);
+            const solenoidLog = normalizeSolenoid(schedule.solenoid);
+
+            if (!waktuList.length) continue;
+            if (!solenoidLog) continue;
+
+            for (const waktuItem of waktuList) {
+                const scheduledAt = makeScheduleDateTimeJakarta(today, waktuItem);
+                const diff = now - scheduledAt.getTime();
+
+                // belum melewati waktu jadwal + toleransi
+                if (diff < FAILED_TOLERANCE_MS) continue;
+
+                // jangan proses jadwal terlalu lama
+                if (diff > MAX_LOOKBACK_MS) continue;
+
+                for (const device of relatedDevices) {
+                    const deviceStatus = String(device.status || "").toLowerCase();
+
+                    if (deviceStatus !== "inactive") continue;
+
+                    const offlineSince = device.lastOfflineAt
+                        ? new Date(device.lastOfflineAt)
+                        : null;
+
+                    // INI BAGIAN PENTING:
+                    // kalau alat baru offline setelah jam jadwal,
+                    // jangan anggap jadwal lama sebagai failed
+                    if (offlineSince && scheduledAt < offlineSince) {
+                        continue;
+                    }
+
+                    const executionDate = today;
+                    const executionId = makeExecutionId(
+                        device.id,
+                        schedule.id,
+                        executionDate,
+                        waktuItem
+                    );
+                    await ScheduleLog.findOrCreate({
+                        where: {
+                            executionId,
+                            deviceId: device.id
+                        },
+                        defaults: {
+                            executionId,
+                            nama: schedule.nama,
+                            tanggal: tanggalDisplay,
+                            waktu: waktuItem,
+                            durasi: schedule.durasi,
+                            solenoid: solenoidLog,
+                            internet: OFFLINE_INTERNET_VALUE,
+                            status: FAILED_STATUS_VALUE,
+                            reason: "DEVICE_OFFLINE",
+                            timestamp: scheduledAt,
+                            userId: device.userId,
+                            deviceId: device.id
+                        }
+                    });
+                }
+            }
+        }
+    } catch (error) {
+        console.error("❌ Gagal membuat log jadwal gagal:", error.message);
+    }
+}
+
+setInterval(createFailedLogsForMissedSchedules, FAILED_CHECK_INTERVAL_MS);
 
 // Kita tidak lagi butuh on('message') atau Socket.IO di sini
 server.listen(PORT, () => console.log(`🚀 Server berjalan di ${process.env.APP_URL}:${PORT}`));

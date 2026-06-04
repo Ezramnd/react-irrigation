@@ -398,7 +398,7 @@ const SmartIrrigationDashboard = ({ device, isLoading }) => {
     useEffect(() => {
         if (!device?.id) return;
 
-        const socketUrl = 'http://192.168.1.100:5000'; // GANTI SESUAI URL BACKEND ANDA
+        const socketUrl = 'http://37.44.244.108:5173'; // GANTI SESUAI URL BACKEND ANDA
         const socket = io(socketUrl);
 
         console.log("🔌 Menghubungkan Socket.IO...");

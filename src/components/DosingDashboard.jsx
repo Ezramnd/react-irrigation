@@ -6,7 +6,7 @@ import { FaTint, FaThermometerHalf, FaCrosshairs, FaHandPaper, FaClock, FaInfoCi
 import { FiDownload, FiChevronLeft, FiChevronRight, FiTrash2 } from 'react-icons/fi';
 
 // Hapus inisialisasi socket di luar agar tidak double connection saat re-render
-// const socket = io('http://192.168.1.100:5000'); 
+// const socket = io('https://37.44.244.108:3020'); 
 
 // --- KOMPONEN REUSABLE ---
 
@@ -354,7 +354,7 @@ const DosingDashboard = ({ deviceId }) => {
 
 // 3. SOCKET CONNECTION DENGAN WATCHDOG
   useEffect(() => {
-    const socketUrl = `http://192.168.1.100:5000`; 
+    const socketUrl = `http://37.44.244.108:5173`; 
     const socketInstance = io(socketUrl); 
     let watchdogTimer;
 
